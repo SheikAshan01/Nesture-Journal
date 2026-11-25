@@ -240,6 +240,11 @@ export function parseRssXml(xml: string, sourceName: string, defaultCategory: st
       }
     }
 
+    // Upgrade WordPress small thumbnails (-150x150, -300x200) to full-res HD image URL
+    if (image) {
+      image = image.replace(/-\d{2,4}x\d{2,4}(?=\.(?:jpg|jpeg|png|webp)(?:\?|$))/i, '');
+    }
+
     // PubDate
     let pubDate: Date | undefined;
     const dateMatch = /<(?:pubDate|published|updated)>(.*?)<\/(?:pubDate|published|updated)>/i.exec(itemBlock);
