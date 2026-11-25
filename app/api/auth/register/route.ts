@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { ensureRoleWithPermissions } from '@/lib/auth/bootstrap';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,13 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!targetRole) {
-      // If role table doesn't have it yet, fallback to first role or create
-      targetRole = await prisma.role.create({
-        data: {
-          name: role || 'EDITOR',
-          description: 'Editorial staff member',
-        },
-      });
+      targetRole = await ensureRoleWithPermissions(role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'EDITOR');
     }
 
     // Hash password securely with bcrypt
@@ -136,12 +131,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Set HTTP-only cookie
+    // Set HTTP-only cookie matching lib/auth/session.ts (nj_session_token)
     response.cookies.set({
-      name: 'nesture_session',
+      name: 'nj_session_token',
       value: token,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.VERCEL === '1' || process.env.HTTPS === 'true',
       sameSite: 'lax',
       path: '/',
       expires: expiresAt,

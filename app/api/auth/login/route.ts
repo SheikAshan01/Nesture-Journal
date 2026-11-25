@@ -8,6 +8,7 @@ import {
   createSession,
 } from '@/lib/auth/session';
 import { logAuditEvent } from '@/lib/auth/audit';
+import { ensureDefaultTestAccount } from '@/lib/auth/bootstrap';
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,8 +34,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const cleanEmail = email.toLowerCase().trim();
+    await ensureDefaultTestAccount(cleanEmail);
+
     const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
+      where: { email: cleanEmail },
       include: {
         role: {
           include: {
