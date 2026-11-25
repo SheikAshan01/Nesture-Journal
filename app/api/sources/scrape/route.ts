@@ -8,8 +8,22 @@ export const dynamic = 'force-dynamic';
 let lastScrapeTime: Date | null = null;
 let lastResultSummary: any = null;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const isCronParam = req.nextUrl.searchParams.get('cron') === '1';
+    const isVercelCron = req.headers.get('x-vercel-cron') === '1';
+    if (isCronParam || isVercelCron) {
+      const result = await scrapeWorldwideFeeds();
+      lastScrapeTime = new Date();
+      lastResultSummary = {
+        timestamp: lastScrapeTime,
+        totalProcessed: result.totalProcessed,
+        newArticlesCount: result.newArticlesCount,
+        sourcesReport: result.sourcesReport,
+      };
+      return NextResponse.json({ success: true, result });
+    }
+
     const unpublishedCount = await prisma.article.count({
       where: {
         status: { not: 'PUBLISHED' },

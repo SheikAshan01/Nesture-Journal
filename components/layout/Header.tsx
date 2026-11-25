@@ -115,14 +115,13 @@ export default function Header() {
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2 sm:space-x-3 group min-w-0 flex-shrink">
-            {/* Custom SVG Emblem matching the screenshot */}
-            <div className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 flex items-center justify-center">
-              <svg viewBox="0 0 44 44" fill="none" className="w-full h-full">
-                <path d="M14 34V16L22 10V34H14Z" fill="#FFFFFF" />
-                <path d="M22 34V6L32 14V34H22Z" fill="#008F5A" />
-                <path d="M6 34V22L14 16V34H6Z" fill="#00A86B" />
-                <path d="M4 36C12 36 28 35 38 31C32 37 16 38 4 36Z" fill="#008F5A" />
-              </svg>
+            {/* Official Nesture Journal Logo (matching Admin) */}
+            <div className="w-9 h-9 sm:w-11 sm:h-11 flex-shrink-0 flex items-center justify-center bg-white/95 rounded-xl p-1 shadow-xs">
+              <img
+                src="/images/nesture-official-logo.png"
+                alt="Nesture Journal"
+                className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+              />
             </div>
 
             <div className="flex flex-col min-w-0">

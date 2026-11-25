@@ -103,6 +103,42 @@ function ArticlesDeskContent() {
     fetchArticles();
   }, [selectedCategory, activeTab]);
 
+  // Auto-scrape on Vercel/serverless if Unpublished queue is empty on first visit, and refresh every 10 mins
+  useEffect(() => {
+    if (activeTab !== 'UNPUBLISHED') return;
+    const autoScrapeIfEmpty = async () => {
+      try {
+        const res = await fetch('/api/articles?status=UNPUBLISHED&limit=1', { cache: 'no-store' });
+        const data = await res.json();
+        if (Array.isArray(data?.articles) && data.articles.length === 0) {
+          setIsScraping(true);
+          const scrapeRes = await fetch('/api/sources/scrape', { method: 'POST', credentials: 'include' });
+          if (scrapeRes.ok) {
+            fetchArticles();
+            fetchCounts();
+          }
+          setIsScraping(false);
+        }
+      } catch {
+        setIsScraping(false);
+      }
+    };
+    autoScrapeIfEmpty();
+
+    const interval = setInterval(() => {
+      fetch('/api/sources/scrape', { method: 'POST', credentials: 'include' })
+        .then((r) => {
+          if (r.ok) {
+            fetchArticles();
+            fetchCounts();
+          }
+        })
+        .catch(() => {});
+    }, 10 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [activeTab]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     fetchArticles();

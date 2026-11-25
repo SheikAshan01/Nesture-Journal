@@ -292,6 +292,17 @@ export function parseRssXml(xml: string, sourceName: string, defaultCategory: st
   return stories;
 }
 
+const DEFAULT_CATEGORIES = [
+  { name: 'Residential', slug: 'residential', description: 'Housing, villas, apartments & residential trends', color: '#008F5A' },
+  { name: 'Commercial', slug: 'commercial', description: 'Grade-A offices, retail, coworking & leasing', color: '#0284C7' },
+  { name: 'International', slug: 'international', description: 'Global property markets & cross-border capital', color: '#0284C7' },
+  { name: 'Finance', slug: 'finance', description: 'REITs, mortgages, RBI rates & institutional PE', color: '#008F5A' },
+  { name: 'Legal', slug: 'legal', description: 'RERA regulations, court rulings & compliance', color: '#D97706' },
+  { name: 'Realty Tech', slug: 'realty-tech', description: 'PropTech, AI, smart buildings & digital titling', color: '#2563EB' },
+  { name: 'Development', slug: 'development', description: 'Infrastructure corridors, airports & urban planning', color: '#008F5A' },
+  { name: 'General', slug: 'general', description: 'Industry news, ESG & editorial analysis', color: '#4B5563' },
+];
+
 export async function scrapeWorldwideFeeds(): Promise<{
   totalProcessed: number;
   newArticlesCount: number;
@@ -303,8 +314,20 @@ export async function scrapeWorldwideFeeds(): Promise<{
   const insertedArticles: any[] = [];
   const sourcesReport: { name: string; status: string; fetched: number; inserted: number }[] = [];
 
-  // 1. Ensure Categories exist in DB
-  const categories = await prisma.category.findMany({ select: { id: true, slug: true } });
+  // 1. Ensure all 8 default Categories exist in DB (critical for fresh Vercel DB!)
+  let categories = await prisma.category.findMany({ select: { id: true, slug: true } });
+  const existingSlugs = new Set(categories.map((c) => c.slug));
+  const missingCategories = DEFAULT_CATEGORIES.filter((c) => !existingSlugs.has(c.slug));
+  if (missingCategories.length > 0) {
+    for (const cat of missingCategories) {
+      await prisma.category.upsert({
+        where: { slug: cat.slug },
+        update: {},
+        create: cat,
+      }).catch(() => {});
+    }
+    categories = await prisma.category.findMany({ select: { id: true, slug: true } });
+  }
   const categoryMap = new Map<string, string>();
   categories.forEach((c) => categoryMap.set(c.slug, c.id));
 
@@ -325,129 +348,123 @@ export async function scrapeWorldwideFeeds(): Promise<{
     });
   }
 
-  // 2. Fetch each feed
-  for (const feed of WORLDWIDE_FEEDS) {
-    let fetched = 0;
-    let inserted = 0;
-    let status = 'OK';
+  // 2. Fetch all feeds in parallel (fast for Vercel 10s serverless timeout)
+  const feedResults = await Promise.all(
+    WORLDWIDE_FEEDS.map(async (feed) => {
+      let fetched = 0;
+      let inserted = 0;
+      let status = 'OK';
+      const feedInserted: any[] = [];
 
-    try {
-      const response = await fetch(feed.url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          Accept: 'application/rss+xml, application/xml, text/xml, */*',
-        },
-        signal: AbortSignal.timeout(8000),
-      });
-
-      if (!response.ok) {
-        status = `HTTP ${response.status}`;
-        sourcesReport.push({ name: feed.name, status, fetched: 0, inserted: 0 });
-        continue;
-      }
-
-      const xml = await response.text();
-      const stories = parseRssXml(xml, feed.name, feed.defaultCategory);
-      fetched = stories.length;
-      totalProcessed += fetched;
-
-      // Ingest stories into DB
-      for (const story of stories.slice(0, 6)) {
-        // Limit to top 6 per source per cycle to keep quality high
-        const baseSlug = slugify(story.title);
-        if (!baseSlug) continue;
-
-        // Deduplication check: check if already exists by sourceUrl or slug
-        const existing = await prisma.article.findFirst({
-          where: {
-            OR: [
-              { sourceUrl: story.sourceUrl },
-              { slug: { startsWith: baseSlug.slice(0, 30) } },
-              { title: story.title },
-            ],
+      try {
+        const response = await fetch(feed.url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            Accept: 'application/rss+xml, application/xml, text/xml, */*',
           },
+          signal: AbortSignal.timeout(5500),
         });
 
-        if (existing) {
-          // Already in database, avoid duplicate!
-          continue;
+        if (!response.ok) {
+          return { name: feed.name, status: `HTTP ${response.status}`, fetched: 0, inserted: 0, feedInserted };
         }
 
-        // Get Category ID
-        const targetSlug = categoryMap.has(story.categorySlug) ? story.categorySlug : 'general';
-        const categoryId = categoryMap.get(targetSlug) || categories[0]?.id;
-        if (!categoryId) continue;
+        const xml = await response.text();
+        const stories = parseRssXml(xml, feed.name, feed.defaultCategory);
+        fetched = stories.length;
 
-        // Generate clean unique slug
-        const uniqueSlug = `${baseSlug.slice(0, 70)}-${Math.random().toString(36).slice(2, 6)}`;
+        // Ingest stories into DB
+        for (const story of stories.slice(0, 6)) {
+          const baseSlug = slugify(story.title);
+          if (!baseSlug) continue;
 
-        // Calculate reading time
-        const wordCount = story.content.split(/\s+/).length;
-        const readingTime = Math.max(2, Math.ceil(wordCount / 200));
+          const existing = await prisma.article.findFirst({
+            where: {
+              OR: [
+                { sourceUrl: story.sourceUrl },
+                { slug: { startsWith: baseSlug.slice(0, 30) } },
+                { title: story.title },
+              ],
+            },
+          });
 
-        // Create Article as DRAFT (Unpublished!)
-        const created = await prisma.article.create({
-          data: {
-            title: story.title,
-            slug: uniqueSlug,
-            shortDescription: story.shortDescription,
-            content: story.content,
-            featuredImage: story.featuredImage,
-            imageAlt: `${story.title} - Nesture Journal News`,
-            categoryId,
-            authorId: defaultAuthor.id,
-            status: 'DRAFT', // UNPUBLISHED STATE
-            readingTime,
-            sourceName: story.sourceName,
-            sourceUrl: story.sourceUrl,
-            sourceAttribution: `Reported by ${story.sourceName}. Curated by Nesture Editorial Intelligence.`,
-            seoTitle: `${story.title} | Nesture Journal`,
-            seoDescription: story.shortDescription,
-            isDeleted: false,
-            isFeatured: false,
-            isBreaking: false,
-            isTrending: false,
-          },
-          include: {
-            category: true,
-            author: true,
-          },
-        });
+          if (existing) continue;
 
-        inserted++;
-        newArticlesCount++;
-        insertedArticles.push(created);
+          const targetSlug = categoryMap.has(story.categorySlug) ? story.categorySlug : 'general';
+          const categoryId = categoryMap.get(targetSlug) || categories[0]?.id;
+          if (!categoryId) continue;
+
+          const uniqueSlug = `${baseSlug.slice(0, 70)}-${Math.random().toString(36).slice(2, 6)}`;
+          const wordCount = story.content.split(/\s+/).length;
+          const readingTime = Math.max(2, Math.ceil(wordCount / 200));
+
+          const created = await prisma.article.create({
+            data: {
+              title: story.title,
+              slug: uniqueSlug,
+              shortDescription: story.shortDescription,
+              content: story.content,
+              featuredImage: story.featuredImage,
+              imageAlt: `${story.title} - Nesture Journal News`,
+              categoryId,
+              authorId: defaultAuthor.id,
+              status: 'DRAFT',
+              readingTime,
+              sourceName: story.sourceName,
+              sourceUrl: story.sourceUrl,
+              sourceAttribution: `Reported by ${story.sourceName}. Curated by Nesture Editorial Intelligence.`,
+              seoTitle: `${story.title} | Nesture Journal`,
+              seoDescription: story.shortDescription,
+              isDeleted: false,
+              isFeatured: false,
+              isBreaking: false,
+              isTrending: false,
+            },
+            include: {
+              category: true,
+              author: true,
+            },
+          });
+
+          inserted++;
+          feedInserted.push(created);
+        }
+
+        const existingSource = await prisma.contentSource.findFirst({ where: { name: feed.name } });
+        if (existingSource) {
+          await prisma.contentSource.update({
+            where: { id: existingSource.id },
+            data: {
+              lastSyncAt: new Date(),
+              articleCount: { increment: inserted },
+            },
+          }).catch(() => {});
+        } else {
+          await prisma.contentSource.create({
+            data: {
+              name: feed.name,
+              url: feed.url,
+              category: feed.defaultCategory,
+              description: `${feed.region} real estate news feed.`,
+              lastSyncAt: new Date(),
+              articleCount: inserted,
+            },
+          }).catch(() => {});
+        }
+      } catch (err: any) {
+        status = err.name === 'TimeoutError' ? 'TIMEOUT' : 'ERROR';
+        console.warn(`Scraper warning for ${feed.name}:`, err.message);
       }
 
-      // Update or create ContentSource in DB
-      const existingSource = await prisma.contentSource.findFirst({ where: { name: feed.name } });
-      if (existingSource) {
-        await prisma.contentSource.update({
-          where: { id: existingSource.id },
-          data: {
-            lastSyncAt: new Date(),
-            articleCount: { increment: inserted },
-          },
-        }).catch(() => {});
-      } else {
-        await prisma.contentSource.create({
-          data: {
-            name: feed.name,
-            url: feed.url,
-            category: feed.defaultCategory,
-            description: `${feed.region} real estate news feed.`,
-            lastSyncAt: new Date(),
-            articleCount: inserted,
-          },
-        }).catch(() => {});
-      }
+      return { name: feed.name, status, fetched, inserted, feedInserted };
+    })
+  );
 
-    } catch (err: any) {
-      status = err.name === 'TimeoutError' ? 'TIMEOUT' : 'ERROR';
-      console.warn(`Scraper warning for ${feed.name}:`, err.message);
-    }
-
-    sourcesReport.push({ name: feed.name, status, fetched, inserted });
+  for (const r of feedResults) {
+    totalProcessed += r.fetched;
+    newArticlesCount += r.inserted;
+    insertedArticles.push(...r.feedInserted);
+    sourcesReport.push({ name: r.name, status: r.status, fetched: r.fetched, inserted: r.inserted });
   }
 
   return {

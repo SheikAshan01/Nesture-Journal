@@ -38,13 +38,12 @@ export default function Footer() {
           {/* Col 1: Brand Info (5 Cols) */}
           <div className="sm:col-span-2 lg:col-span-5 space-y-3 sm:space-y-4">
             <Link href="/" className="flex items-center space-x-2.5 sm:space-x-3">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 flex-shrink-0 flex items-center justify-center">
-                <svg viewBox="0 0 44 44" fill="none" className="w-full h-full">
-                  <path d="M14 34V16L22 10V34H14Z" fill="#FFFFFF" />
-                  <path d="M22 34V6L32 14V34H22Z" fill="#008F5A" />
-                  <path d="M6 34V22L14 16V34H6Z" fill="#00A86B" />
-                  <path d="M4 36C12 36 28 35 38 31C32 37 16 38 4 36Z" fill="#008F5A" />
-                </svg>
+              <div className="w-9 h-9 sm:w-10 sm:h-10 flex-shrink-0 flex items-center justify-center bg-white/95 rounded-xl p-1 shadow-xs">
+                <img
+                  src="/images/nesture-official-logo.png"
+                  alt="Nesture Journal"
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div>
                 <div className="flex items-baseline space-x-1.5">
