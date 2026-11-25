@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -113,7 +114,7 @@ function ArticlesDeskContent() {
     id?: string;
     currentStatus?: string;
     title?: string;
-    anchor?: { top: number; bottom: number; left: number; right: number };
+    mouse?: { x: number; y: number };
   } | null>(null);
 
   const handleTogglePublish = (
@@ -123,14 +124,14 @@ function ArticlesDeskContent() {
     e?: React.MouseEvent<HTMLElement>
   ) => {
     const rect = e?.currentTarget?.getBoundingClientRect();
+    const x = e?.clientX || (rect ? rect.left + rect.width / 2 : undefined);
+    const y = e?.clientY || (rect ? rect.top + rect.height / 2 : undefined);
     setPublishConfirm({
       mode: 'single',
       id,
       currentStatus,
       title: title || 'this article',
-      anchor: rect
-        ? { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right }
-        : undefined,
+      mouse: x !== undefined && y !== undefined ? { x, y } : undefined,
     });
   };
 
@@ -372,7 +373,10 @@ function ArticlesDeskContent() {
                     const rect = e.currentTarget.getBoundingClientRect();
                     setPublishConfirm({
                       mode: 'all',
-                      anchor: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right },
+                      mouse: {
+                        x: e.clientX || rect.left + rect.width / 2,
+                        y: e.clientY || rect.top + rect.height / 2,
+                      },
                     });
                   }}
                   disabled={isPublishing}
@@ -969,95 +973,84 @@ function ArticlesDeskContent() {
       )}
 
       {/* =========================================================================
-          PUBLISH / PUBLISH ALL CONFIRMATION MODAL
+          PUBLISH / PUBLISH ALL CONFIRMATION MODAL (PORTAL CENTERED IN VIEWPORT)
          ========================================================================= */}
-      {publishConfirm && (
-        <div
-          className="fixed inset-0 bg-slate-900/25 z-50 animate-fade-in"
-          onClick={() => !isPublishing && setPublishConfirm(null)}
-        >
+      {publishConfirm &&
+        typeof document !== 'undefined' &&
+        createPortal(
           <div
-            style={
-              publishConfirm.anchor && typeof window !== 'undefined'
-                ? {
-                    position: 'fixed',
-                    top: `${Math.max(16, Math.min(window.innerHeight - 230, publishConfirm.anchor.bottom + 8))}px`,
-                    left: `${Math.max(16, Math.min(window.innerWidth - 400, publishConfirm.anchor.left - 120))}px`,
-                  }
-                : {
-                    position: 'fixed',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                  }
-            }
-            className="bg-white rounded-2xl max-w-sm w-[calc(100vw-32px)] p-5 shadow-2xl border-2 border-emerald-500/40 space-y-3.5"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 bg-slate-900/55 backdrop-blur-xs z-[9999] flex items-center justify-center p-4 animate-fade-in"
+            onClick={() => !isPublishing && setPublishConfirm(null)}
           >
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#008F5A] flex-shrink-0">
-                <Check size={20} />
+            <div
+              className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#008F5A] flex-shrink-0">
+                  <Check size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    {publishConfirm.mode === 'all'
+                      ? `Publish All ${articles.length} Pending Articles?`
+                      : publishConfirm.currentStatus === 'PUBLISHED'
+                      ? 'Move Article to Draft Queue?'
+                      : 'Confirm Live Publication'}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {publishConfirm.mode === 'all'
+                      ? selectedCategory
+                        ? `All unpublished articles in this sector will go live immediately.`
+                        : 'All pending unpublished articles will be published live to your website.'
+                      : publishConfirm.currentStatus === 'PUBLISHED'
+                      ? 'This article will be removed from the live site and moved to Unpublished.'
+                      : 'This article will immediately appear live on your website under its category.'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900">
-                  {publishConfirm.mode === 'all'
-                    ? `Publish All ${articles.length} Pending Articles?`
-                    : publishConfirm.currentStatus === 'PUBLISHED'
-                    ? 'Move Article to Draft Queue?'
-                    : 'Confirm Live Publication'}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {publishConfirm.mode === 'all'
-                    ? selectedCategory
-                      ? `All unpublished articles in this sector will go live immediately.`
-                      : 'All pending unpublished articles will be published live to your website.'
-                    : publishConfirm.currentStatus === 'PUBLISHED'
-                    ? 'This article will be removed from the live site and moved to Unpublished.'
-                    : 'This article will immediately appear live on your website under its category.'}
-                </p>
+
+              {publishConfirm.mode === 'single' && publishConfirm.title && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 line-clamp-2">
+                  {publishConfirm.title}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  disabled={isPublishing}
+                  onClick={() => setPublishConfirm(null)}
+                  className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isPublishing}
+                  onClick={executePublish}
+                  className={`px-5 py-2 text-xs font-extrabold text-white rounded-xl transition shadow-md flex items-center space-x-1.5 disabled:opacity-60 ${
+                    publishConfirm.mode === 'single' && publishConfirm.currentStatus === 'PUBLISHED'
+                      ? 'bg-amber-600 hover:bg-amber-700'
+                      : 'bg-[#008F5A] hover:bg-[#007348]'
+                  }`}
+                >
+                  <Check size={14} />
+                  <span>
+                    {isPublishing
+                      ? 'Publishing...'
+                      : publishConfirm.mode === 'all'
+                      ? `Confirm & Publish All`
+                      : publishConfirm.currentStatus === 'PUBLISHED'
+                      ? 'Confirm Unpublish'
+                      : 'Confirm & Publish Live'}
+                  </span>
+                </button>
               </div>
             </div>
-
-            {publishConfirm.mode === 'single' && publishConfirm.title && (
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 line-clamp-2">
-                {publishConfirm.title}
-              </div>
-            )}
-
-            <div className="flex items-center justify-end space-x-2 pt-2">
-              <button
-                type="button"
-                disabled={isPublishing}
-                onClick={() => setPublishConfirm(null)}
-                className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isPublishing}
-                onClick={executePublish}
-                className={`px-5 py-2 text-xs font-extrabold text-white rounded-xl transition shadow-md flex items-center space-x-1.5 disabled:opacity-60 ${
-                  publishConfirm.mode === 'single' && publishConfirm.currentStatus === 'PUBLISHED'
-                    ? 'bg-amber-600 hover:bg-amber-700'
-                    : 'bg-[#008F5A] hover:bg-[#007348]'
-                }`}
-              >
-                <Check size={14} />
-                <span>
-                  {isPublishing
-                    ? 'Publishing...'
-                    : publishConfirm.mode === 'all'
-                    ? `Confirm & Publish All`
-                    : publishConfirm.currentStatus === 'PUBLISHED'
-                    ? 'Confirm Unpublish'
-                    : 'Confirm & Publish Live'}
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

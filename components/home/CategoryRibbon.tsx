@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useRef } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/components/common/ThemeProvider';
 import { getCategoryColor } from '@/lib/theme';
+import CustomizerSectionHandles, { broadcastCustomizerResize } from '@/components/common/CustomizerSectionHandles';
 import {
   Home,
   Building2,
@@ -68,6 +69,7 @@ const CATEGORIES = [
 
 export default function CategoryRibbon() {
   const { theme } = useTheme();
+  const dragBaseRef = useRef({ height: 96 });
 
   const orderedCategories = React.useMemo(() => {
     if (!theme?.categoryOrder || !Array.isArray(theme.categoryOrder)) return CATEGORIES;
@@ -79,9 +81,40 @@ export default function CategoryRibbon() {
     });
   }, [theme?.categoryOrder]);
 
+  const cardHeightNum = parseInt((theme as any)?.categoryCardHeight || '96px', 10) || 96;
+  const catCols = (theme as any)?.categoryColumns || '8';
+  const colGridClass =
+    catCols === '4'
+      ? 'grid-cols-2 sm:grid-cols-4'
+      : catCols === '6'
+      ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'
+      : 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-8';
+
   return (
     <section className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3">
+      <div className={`relative rounded-2xl grid ${colGridClass} gap-2 sm:gap-3`}>
+        <CustomizerSectionHandles
+          badgeText={`Categories: ${catCols}-Cols × ${cardHeightNum}px`}
+          bottomLabel={`Resize Category Cards (${cardHeightNum}px)`}
+          sideLabel={`${catCols}-Cols`}
+          onDragStart={() => {
+            dragBaseRef.current.height = cardHeightNum;
+          }}
+          onVerticalDrag={(deltaY) => {
+            const nextH = Math.max(64, Math.min(180, dragBaseRef.current.height + Math.round(deltaY / 2)));
+            broadcastCustomizerResize({ categoryCardHeight: `${nextH}px` } as any);
+          }}
+          onHorizontalDrag={(deltaX) => {
+            const nextCols = deltaX > 40 ? '8' : deltaX < -40 ? '4' : '6';
+            if (nextCols !== catCols) {
+              broadcastCustomizerResize({ categoryColumns: nextCols } as any);
+            }
+          }}
+          onHorizontalClick={() => {
+            const nextCols = catCols === '8' ? '4' : catCols === '4' ? '6' : '8';
+            broadcastCustomizerResize({ categoryColumns: nextCols } as any);
+          }}
+        />
         {orderedCategories.map((cat) => {
           const Icon = cat.icon;
           const catColor = getCategoryColor(cat.slug, theme?.categoryColors);
@@ -89,7 +122,10 @@ export default function CategoryRibbon() {
             <Link
               key={cat.slug}
               href={`/category/${cat.slug}`}
-              style={{ borderRadius: theme?.borderRadius || '12px' }}
+              style={{
+                borderRadius: theme?.borderRadius || '12px',
+                minHeight: `${cardHeightNum}px`,
+              }}
               className="group bg-white hover:bg-slate-50 border border-editorialBorder hover:border-slate-300 p-2.5 sm:p-3 transition duration-300 flex flex-col justify-between shadow-xs card-hover-modern"
             >
               <div style={{ color: catColor }} className="mb-1.5 sm:mb-2">

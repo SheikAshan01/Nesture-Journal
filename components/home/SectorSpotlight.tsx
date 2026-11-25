@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/components/common/ThemeProvider';
 import { getCategoryBadgeStyle } from '@/lib/theme';
+import CustomizerSectionHandles, { broadcastCustomizerResize } from '@/components/common/CustomizerSectionHandles';
 import {
   Layers,
   ArrowRight,
@@ -49,6 +50,7 @@ export default function SectorSpotlight() {
   const [activeTab, setActiveTab] = useState('all');
   const [articles, setArticles] = useState<ArticleItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const dragBaseRef = useRef({ imgHeight: 150, widthPct: 66 });
 
   useEffect(() => {
     fetch('/api/articles?status=PUBLISHED&limit=25', { cache: 'no-store' })
@@ -116,19 +118,64 @@ export default function SectorSpotlight() {
         </div>
       </div>
 
-      {/* Grid: 6 Main Sector Cards (8 Cols) + 1 Side Trending Brief Column (4 Cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Main Sector Articles Grid */}
-        <div className="lg:col-span-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {displayArticles.map((art) => (
-              <article
-                key={art.id}
-                className="bg-white rounded-xl border border-editorialBorder hover:border-emerald-brand/50 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between overflow-hidden card-hover-modern group"
-              >
-                <div>
-                  {/* Thumbnail with Source Badge */}
-                  <div className="aspect-[16/10] bg-gray-100 relative overflow-hidden">
+      {/* Grid: Main Sector Cards + Side Trending Brief Column (Freeform Aligned) */}
+      {(() => {
+        const sectorImgHeight = parseInt((theme as any)?.sectorImageHeight || '150px', 10) || 150;
+        const sectorWidthPct = ((theme as any)?.sectorWidthPct as number | undefined) ?? 66;
+        const isSectorFull = sectorWidthPct >= 92;
+        const sectorCols = (theme as any)?.sectorColumns || '3';
+        const sectorColClass =
+          sectorCols === '2'
+            ? 'grid-cols-1 sm:grid-cols-2'
+            : sectorCols === '4'
+            ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+            : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
+
+        return (
+          <div className="flex flex-col lg:flex-row lg:flex-wrap gap-6 items-start">
+            {/* Main Sector Articles Grid */}
+            <div
+              style={{
+                flexBasis: isSectorFull ? '100%' : `calc(${sectorWidthPct}% - 12px)`,
+                maxWidth: '100%',
+              }}
+              className="w-full lg:w-auto flex-shrink-0 relative rounded-2xl"
+            >
+              <CustomizerSectionHandles
+                badgeText={`Sector Grid: ${sectorWidthPct}% × ${sectorImgHeight}px`}
+                bottomLabel={`Resize Sector Images (${sectorImgHeight}px)`}
+                sideLabel={`${sectorWidthPct}%`}
+                onDragStart={() => {
+                  dragBaseRef.current.imgHeight = sectorImgHeight;
+                  dragBaseRef.current.widthPct = sectorWidthPct;
+                }}
+                onVerticalDrag={(deltaY) => {
+                  const nextH = Math.max(90, Math.min(280, dragBaseRef.current.imgHeight + Math.round(deltaY / 2)));
+                  broadcastCustomizerResize({ sectorImageHeight: `${nextH}px` } as any);
+                }}
+                onHorizontalDrag={(deltaX) => {
+                  const deltaPct = Math.round(deltaX / 8);
+                  const nextPct = Math.max(45, Math.min(100, dragBaseRef.current.widthPct + deltaPct));
+                  broadcastCustomizerResize({ sectorWidthPct: nextPct } as any);
+                }}
+                onHorizontalClick={() => {
+                  const nextCols = sectorCols === '3' ? '2' : sectorCols === '2' ? '4' : '3';
+                  broadcastCustomizerResize({ sectorColumns: nextCols } as any);
+                }}
+              />
+              <div className={`grid ${sectorColClass} gap-4`}>
+                {displayArticles.map((art) => (
+                  <article
+                    key={art.id}
+                    style={{ borderRadius: theme?.borderRadius || '12px' }}
+                    className="bg-white rounded-xl border border-editorialBorder hover:border-emerald-brand/50 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between overflow-hidden card-hover-modern group"
+                  >
+                    <div>
+                      {/* Thumbnail with Source Badge */}
+                      <div
+                        style={{ height: `${sectorImgHeight}px` }}
+                        className="bg-gray-100 relative overflow-hidden"
+                      >
                     <img
                       src={
                         art.featuredImage ||
@@ -203,7 +250,7 @@ export default function SectorSpotlight() {
         </div>
 
         {/* Side Trending Column: Real Estate Market Digest */}
-        <div className="lg:col-span-4 space-y-4">
+        <div className={`${isSectorFull ? 'w-full' : 'w-full lg:flex-1 lg:min-w-[260px]'} space-y-4`}>
           <div className="bg-gradient-to-br from-navy-900 to-navy-950 text-white p-5 rounded-2xl shadow-md border border-navy-800">
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-navy-800">
               <div className="flex items-center space-x-2">
@@ -254,6 +301,8 @@ export default function SectorSpotlight() {
           </div>
         </div>
       </div>
+        );
+      })()}
     </section>
   );
 }
