@@ -303,8 +303,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     );
   }
 
-  // Hover-to-expand feature (Meta Ads Manager behavior: hovering opens side menu when collapsed)
+  // Hover-to-expand on desktop + always show labels when mobile drawer is open
   const isExpanded = sidebarOpen || isHovered;
+  const showLabels = isHovered || mobileMenuOpen;
 
   return (
     <div className="min-h-screen bg-[#F0F2F5] text-[#1C1E21] flex flex-col md:flex-row antialiased md:h-screen md:overflow-hidden font-sans">
@@ -344,8 +345,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           isHovered ? 'md:w-64 shadow-xl' : 'md:w-16 shadow-2xs'
         } md:h-screen md:sticky md:top-0 md:overflow-hidden bg-white text-[#1C1E21] border-r border-[#E4E6EB] flex-shrink-0 z-30 transition-[width,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]`}
       >
-        {/* Top Header: Official Logo (Smoothly reveals brand text on hover, no toggle button) */}
-        <div className="h-16 px-3 border-b border-[#E4E6EB] flex items-center flex-shrink-0 overflow-hidden">
+        {/* Top Header: Official Logo (Desktop only; mobile has top bar) */}
+        <div className="hidden md:flex h-16 px-3 border-b border-[#E4E6EB] items-center flex-shrink-0 overflow-hidden">
           <Link href="/admin" className="flex items-center min-w-0 group w-full">
             <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
               <img
@@ -356,7 +357,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             </div>
             <div
               className={`min-w-0 ml-2.5 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden ${
-                isHovered ? 'opacity-100 max-w-[170px]' : 'opacity-0 max-w-0 pointer-events-none'
+                showLabels ? 'opacity-100 max-w-[170px]' : 'opacity-0 max-w-0 pointer-events-none'
               }`}
             >
               <div className="font-serif font-extrabold text-sm tracking-tight text-[#1C1E21] leading-tight whitespace-nowrap">
@@ -373,7 +374,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <Suspense fallback={<div className="flex-1 p-3 text-xs text-slate-400">Loading modules...</div>}>
           <SidebarNavList
             pathname={pathname}
-            isExpanded={isHovered}
+            isExpanded={showLabels}
             onNavigate={() => setMobileMenuOpen(false)}
           />
         </Suspense>
@@ -396,7 +397,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               </div>
               <span
                 className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                  isHovered ? 'opacity-100 max-w-[180px]' : 'opacity-0 max-w-0 pointer-events-none'
+                  showLabels ? 'opacity-100 max-w-[180px]' : 'opacity-0 max-w-0 pointer-events-none'
                 }`}
               >
                 Quick Jump
@@ -407,6 +408,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             <div className="flex items-center rounded-xl bg-[#F0F2F5] hover:bg-slate-200/80 transition-colors p-1.5 overflow-hidden">
               <Link
                 href="/admin/settings"
+                onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center min-w-0 flex-1"
                 title="Edit Account Profile"
               >
@@ -419,14 +421,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 </div>
                 <div
                   className={`ml-2.5 min-w-0 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                    isHovered ? 'opacity-100 max-w-[140px]' : 'opacity-0 max-w-0 pointer-events-none'
+                    showLabels ? 'opacity-100 max-w-[140px]' : 'opacity-0 max-w-0 pointer-events-none'
                   }`}
                 >
                   <div className="text-xs font-bold text-[#1C1E21] truncate">{user?.name || 'Director'}</div>
                   <div className="text-[10px] text-[#1877F2] font-semibold truncate font-mono uppercase">{user?.role || 'SUPER_ADMIN'}</div>
                 </div>
               </Link>
-              {isHovered && (
+              {showLabels && (
                 <button
                   onClick={handleLogout}
                   title="Sign Out Session"
