@@ -66,9 +66,9 @@ export default function AdminLoginPage() {
             <ShieldCheck size={14} />
             <span>Editorial Management System</span>
           </div>
-          <p className="text-gray-400 text-xs sm:text-sm mt-1.5">
+          {/* <p className="text-gray-400 text-xs sm:text-sm mt-1.5">
             Real-time content management & PostgreSQL publication desk.
-          </p>
+          </p> */}
         </div>
 
         {/* Card */}

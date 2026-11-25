@@ -9,7 +9,8 @@ export const metadata = {
   description: 'Complete directory index of all public articles, categories, and intelligence portals.',
 };
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function SitemapHtmlPage() {
   const [categories, articles] = await Promise.all([

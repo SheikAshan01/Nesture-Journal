@@ -113,14 +113,24 @@ function ArticlesDeskContent() {
     id?: string;
     currentStatus?: string;
     title?: string;
+    anchor?: { top: number; bottom: number; left: number; right: number };
   } | null>(null);
 
-  const handleTogglePublish = (id: string, currentStatus: string, title?: string) => {
+  const handleTogglePublish = (
+    id: string,
+    currentStatus: string,
+    title?: string,
+    e?: React.MouseEvent<HTMLElement>
+  ) => {
+    const rect = e?.currentTarget?.getBoundingClientRect();
     setPublishConfirm({
       mode: 'single',
       id,
       currentStatus,
       title: title || 'this article',
+      anchor: rect
+        ? { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right }
+        : undefined,
     });
   };
 
@@ -358,7 +368,13 @@ function ArticlesDeskContent() {
               {counts.unpublished > 0 && (
                 <button
                   type="button"
-                  onClick={() => setPublishConfirm({ mode: 'all' })}
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setPublishConfirm({
+                      mode: 'all',
+                      anchor: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right },
+                    });
+                  }}
                   disabled={isPublishing}
                   className="px-4 py-2.5 bg-[#008F5A] hover:bg-[#007348] text-white text-xs font-extrabold rounded-xl transition btn-press flex items-center space-x-2 shadow-md disabled:opacity-60"
                 >
@@ -638,7 +654,7 @@ function ArticlesDeskContent() {
 
                     {/* Publish / Unpublish Button */}
                     <button
-                      onClick={() => handleTogglePublish(art.id, art.status, art.title)}
+                      onClick={(e) => handleTogglePublish(art.id, art.status, art.title, e)}
                       className={`px-3.5 py-1.5 text-xs font-extrabold rounded-xl shadow-xs transition btn-press flex items-center space-x-1.5 ${
                         isPub
                           ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
@@ -794,7 +810,7 @@ function ArticlesDeskContent() {
                           </Link>
 
                           <button
-                            onClick={() => handleTogglePublish(art.id, art.status, art.title)}
+                            onClick={(e) => handleTogglePublish(art.id, art.status, art.title, e)}
                             title={isPub ? 'Unpublish to Draft' : 'Publish Live'}
                             className="p-1 text-slate-400 hover:text-amber-600 rounded-lg hover:bg-amber-50 transition"
                           >
@@ -931,7 +947,7 @@ function ArticlesDeskContent() {
 
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => handleTogglePublish(previewArticle.id, previewArticle.status, previewArticle.title)}
+                  onClick={(e) => handleTogglePublish(previewArticle.id, previewArticle.status, previewArticle.title, e)}
                   className={`px-5 py-1.5 text-xs font-extrabold rounded-xl transition btn-press shadow-xs ${
                     previewArticle.status === 'PUBLISHED'
                       ? 'bg-amber-600 hover:bg-amber-700 text-white'
@@ -957,11 +973,25 @@ function ArticlesDeskContent() {
          ========================================================================= */}
       {publishConfirm && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
+          className="fixed inset-0 bg-slate-900/25 z-50 animate-fade-in"
           onClick={() => !isPublishing && setPublishConfirm(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4"
+            style={
+              publishConfirm.anchor && typeof window !== 'undefined'
+                ? {
+                    position: 'fixed',
+                    top: `${Math.max(16, Math.min(window.innerHeight - 230, publishConfirm.anchor.bottom + 8))}px`,
+                    left: `${Math.max(16, Math.min(window.innerWidth - 400, publishConfirm.anchor.left - 120))}px`,
+                  }
+                : {
+                    position: 'fixed',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                  }
+            }
+            className="bg-white rounded-2xl max-w-sm w-[calc(100vw-32px)] p-5 shadow-2xl border-2 border-emerald-500/40 space-y-3.5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center space-x-3">

@@ -105,7 +105,7 @@ export default function HeroSection() {
   const [slides, setSlides] = useState<HeroStory[]>(DEFAULT_SLIDES);
   const [cards, setCards] = useState(DEFAULT_RIGHT_CARDS);
   const [isPaused, setIsPaused] = useState(false);
-  const dragBaseRef = useRef({ heroHeight: 460, sideHeight: 85, thumbWidth: 96 });
+  const dragBaseRef = useRef({ heroHeight: 460, heroWidthPct: 66, sideHeight: 85, thumbWidth: 96 });
 
   useEffect(() => {
     fetch('/api/articles?status=PUBLISHED&limit=20', { cache: 'no-store' })
@@ -218,7 +218,9 @@ export default function HeroSection() {
     return null;
   }
 
-  const isFullWidth = theme?.heroWidth === 'full';
+  const customWidthPct = (theme as any)?.heroWidthPct as number | undefined;
+  const isFullWidth = customWidthPct !== undefined ? customWidthPct >= 92 : theme?.heroWidth === 'full';
+  const effectiveWidthPct = customWidthPct ?? (isFullWidth ? 100 : 66);
   const bannerMinHeight = theme?.heroHeight || '460px';
   const bannerHeightNum = parseInt(bannerMinHeight, 10) || 460;
   const sideCardHeightNum = parseInt(theme?.sideCardHeight || '85px', 10) || 85;
@@ -226,34 +228,43 @@ export default function HeroSection() {
 
   return (
     <section className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 py-3">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5">
-        {/* Left Hero Big Banner Card - Dynamic 8-Col or 12-Col Full Width with Auto-Reflow */}
+      <div className="flex flex-col lg:flex-row lg:flex-wrap gap-4 lg:gap-5 items-stretch">
+        {/* Left Hero Big Banner Card - Freeform Width & Height */}
         <div
-          style={{ height: bannerMinHeight, borderRadius: theme?.borderRadius || '14px' }}
-          className={`${
-            isFullWidth ? 'lg:col-span-12' : 'lg:col-span-8'
-          } relative`}
+          style={{
+            height: bannerMinHeight,
+            borderRadius: theme?.borderRadius || '14px',
+            flexBasis: isFullWidth ? '100%' : `calc(${effectiveWidthPct}% - 10px)`,
+            maxWidth: '100%',
+          }}
+          className="w-full lg:w-auto flex-shrink-0 relative"
         >
           <CustomizerSectionHandles
-            badgeText={`Banner: ${bannerHeightNum}px × ${isFullWidth ? '12-Cols' : '8-Cols'}`}
+            badgeText={`Banner: ${bannerHeightNum}px × ${effectiveWidthPct}%`}
             bottomLabel={`Drag with mouse to resize (${bannerHeightNum}px)`}
-            sideLabel={isFullWidth ? '12-Col' : '8-Col'}
+            sideLabel={`${effectiveWidthPct}%`}
             onDragStart={() => {
               dragBaseRef.current.heroHeight = bannerHeightNum;
+              dragBaseRef.current.heroWidthPct = effectiveWidthPct;
             }}
             onVerticalDrag={(deltaY) => {
-              const nextH = Math.max(280, Math.min(650, dragBaseRef.current.heroHeight + deltaY));
+              const nextH = Math.max(180, Math.min(900, dragBaseRef.current.heroHeight + deltaY));
               broadcastCustomizerResize({ heroHeight: `${nextH}px` });
             }}
             onHorizontalDrag={(deltaX) => {
-              if (deltaX > 25 && !isFullWidth) {
-                broadcastCustomizerResize({ heroWidth: 'full' });
-              } else if (deltaX < -25 && isFullWidth) {
-                broadcastCustomizerResize({ heroWidth: 'split' });
-              }
+              const deltaPct = Math.round(deltaX / 8);
+              const nextPct = Math.max(40, Math.min(100, dragBaseRef.current.heroWidthPct + deltaPct));
+              broadcastCustomizerResize({
+                heroWidthPct: nextPct,
+                heroWidth: nextPct >= 92 ? 'full' : 'split',
+              } as any);
             }}
             onHorizontalClick={() => {
-              broadcastCustomizerResize({ heroWidth: isFullWidth ? 'split' : 'full' });
+              const nextPct = isFullWidth ? 66 : 100;
+              broadcastCustomizerResize({
+                heroWidthPct: nextPct,
+                heroWidth: nextPct >= 92 ? 'full' : 'split',
+              } as any);
             }}
           />
           <div
@@ -361,13 +372,13 @@ export default function HeroSection() {
         </div>
         </div>
 
-        {/* Right Stacked Stories (4 Cols / or 12-Cols 3-Card Row when Full Width) */}
+        {/* Right Stacked Stories (flexes alongside banner or wraps below when >= 92%) */}
         <div
           id="hero-side-stories"
           className={`relative rounded-2xl ${
             isFullWidth
-              ? 'lg:col-span-12 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4'
-              : 'lg:col-span-4 flex flex-col justify-between space-y-3 sm:space-y-4'
+              ? 'w-full grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4'
+              : 'w-full lg:flex-1 lg:min-w-[260px] flex flex-col justify-between space-y-3 sm:space-y-4'
           }`}
         >
           <CustomizerSectionHandles
@@ -379,11 +390,11 @@ export default function HeroSection() {
               dragBaseRef.current.thumbWidth = sideThumbWidthNum;
             }}
             onVerticalDrag={(deltaY) => {
-              const nextH = Math.max(60, Math.min(140, dragBaseRef.current.sideHeight + Math.round(deltaY / 2)));
+              const nextH = Math.max(50, Math.min(260, dragBaseRef.current.sideHeight + Math.round(deltaY / 2)));
               broadcastCustomizerResize({ sideCardHeight: `${nextH}px` });
             }}
             onHorizontalDrag={(deltaX) => {
-              const nextW = Math.max(64, Math.min(150, dragBaseRef.current.thumbWidth + Math.round(deltaX / 2)));
+              const nextW = Math.max(48, Math.min(220, dragBaseRef.current.thumbWidth + Math.round(deltaX / 2)));
               broadcastCustomizerResize({ sideCardThumbnailWidth: `${nextW}px` });
             }}
           />

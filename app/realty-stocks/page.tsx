@@ -14,7 +14,8 @@ export const metadata: Metadata = {
   alternates: { canonical: '/realty-stocks' },
 };
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function RealtyStocksPage() {
   const stocks = await prisma.marketData.findMany({

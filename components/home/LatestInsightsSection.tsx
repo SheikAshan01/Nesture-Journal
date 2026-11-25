@@ -170,7 +170,7 @@ export default function LatestInsightsSection() {
               dragBaseRef.current.imgHeight = imgHeightNum;
             }}
             onVerticalDrag={(deltaY) => {
-              const nextH = Math.max(120, Math.min(280, dragBaseRef.current.imgHeight + Math.round(deltaY / 2)));
+              const nextH = Math.max(80, Math.min(420, dragBaseRef.current.imgHeight + Math.round(deltaY / 2)));
               broadcastCustomizerResize({ insightsCardImageHeight: `${nextH}px` });
             }}
             onHorizontalDrag={(deltaX) => {
@@ -267,7 +267,7 @@ export default function LatestInsightsSection() {
               dragBaseRef.current.marketHeight = marketHeightNum;
             }}
             onVerticalDrag={(deltaY) => {
-              const nextH = Math.max(320, Math.min(560, dragBaseRef.current.marketHeight + deltaY));
+              const nextH = Math.max(240, Math.min(800, dragBaseRef.current.marketHeight + deltaY));
               broadcastCustomizerResize({ marketWidgetHeight: `${nextH}px` });
             }}
           />
