@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/db';
 import { DEFAULT_THEME } from '@/lib/theme';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET() {
   try {
@@ -10,25 +12,34 @@ export async function GET() {
       where: { id: 'default' },
     });
 
+    let theme = DEFAULT_THEME;
     if (settings?.themeConfig) {
       try {
         const parsed = JSON.parse(settings.themeConfig);
-        return NextResponse.json({
-          theme: { ...DEFAULT_THEME, ...parsed },
-          source: 'database',
-        });
+        theme = { ...DEFAULT_THEME, ...parsed };
       } catch {
         // fallback to default if malformed
       }
     }
 
-    return NextResponse.json({
-      theme: DEFAULT_THEME,
-      source: 'default',
-    });
+    return NextResponse.json(
+      { theme, source: settings?.themeConfig ? 'database' : 'default' },
+      {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0, must-revalidate',
+        },
+      }
+    );
   } catch (err: any) {
     console.error('Error fetching theme:', err);
-    return NextResponse.json({ theme: DEFAULT_THEME, source: 'fallback' });
+    return NextResponse.json(
+      { theme: DEFAULT_THEME, source: 'fallback' },
+      {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0, must-revalidate',
+        },
+      }
+    );
   }
 }
 
@@ -61,11 +72,26 @@ export async function PUT(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Theme and layout configuration published successfully.',
-      theme: updatedTheme,
-    });
+    // Invalidate Next.js cache so the live site reflects updates immediately
+    try {
+      revalidatePath('/', 'layout');
+      revalidatePath('/');
+    } catch (e) {
+      console.warn('Revalidation notice:', e);
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Theme and layout configuration published successfully.',
+        theme: updatedTheme,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0, must-revalidate',
+        },
+      }
+    );
   } catch (err: any) {
     console.error('Error saving theme:', err);
     return NextResponse.json({ error: 'Failed to update theme configuration' }, { status: 500 });

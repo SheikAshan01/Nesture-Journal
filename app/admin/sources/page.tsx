@@ -11,9 +11,9 @@ import {
   CheckCircle2,
   FileText,
   Layers,
-  Database,
-  TrendingUp,
   ShieldCheck,
+  Check,
+  X,
 } from 'lucide-react';
 
 export default function SourcesManagementPage() {
@@ -68,27 +68,27 @@ export default function SourcesManagementPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-editorialBorder pb-5">
-          <div>
-            <div className="flex items-center space-x-2.5">
-              <div className="p-2 bg-emerald-50 text-emerald-brand rounded-lg">
-                <Globe size={22} />
-              </div>
-              <h1 className="font-serif font-bold text-2xl text-editorialText-primary">
-                News Sources & Content Attribution
-              </h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-5">
+          <div className="flex items-center space-x-2.5">
+            <div className="p-2 bg-[#EBF5FF] text-[#1877F2] rounded-xl">
+              <Globe size={22} />
             </div>
-            <p className="text-xs sm:text-sm text-editorialText-secondary mt-1">
-              Dedicated editorial audit of real estate reference portals (PropNewsTime, Realty & More, ET Realty). Every news article links to its verified origin URL.
-            </p>
+            <div>
+              <h1 className="font-serif font-extrabold text-2xl md:text-3xl text-[#1C1E21] tracking-tight">
+                News Sources &amp; Content Attribution
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                Editorial directory of verified real estate portals with active attribution and origin links.
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center space-x-2 px-4 py-2 bg-emerald-brand hover:bg-emerald-hover text-white text-xs sm:text-sm font-semibold rounded-lg shadow-sm transition"
+              className="inline-flex items-center space-x-2 px-4 py-2 bg-[#1877F2] hover:bg-[#166FE5] text-white text-xs font-bold rounded-xl shadow-xs transition btn-press"
             >
               <Plus size={16} />
               <span>Add News Source</span>
@@ -99,255 +99,161 @@ export default function SourcesManagementPage() {
         {/* Feedback alert */}
         {actionMsg && (
           <div
-            className={`p-3.5 rounded-lg text-xs sm:text-sm flex items-center justify-between ${
+            className={`p-3.5 rounded-xl text-xs font-bold flex items-center justify-between animate-fade-in ${
               actionMsg.type === 'success'
                 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
+                : 'bg-rose-50 text-rose-800 border border-rose-200'
             }`}
           >
             <span>{actionMsg.text}</span>
-            <button onClick={() => setActionMsg(null)} className="text-gray-500 hover:text-black">
-              &times;
+            <button onClick={() => setActionMsg(null)} className="text-slate-400 hover:text-slate-700">
+              ✕
             </button>
           </div>
         )}
 
-        {/* Reference Portals Grid */}
-        <div className="space-y-4">
-          <h2 className="font-serif font-bold text-lg text-editorialText-primary flex items-center space-x-2">
-            <Database size={18} className="text-emerald-brand" />
-            <span>Active Real Estate Reference Portals</span>
-          </h2>
+        {/* Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Verified Portals
+            </div>
+            <div className="text-3xl font-extrabold text-[#1C1E21] mt-1 font-mono">
+              {sources.length}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">PropNewsTime, Realty &amp; More, ET Realty</p>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sources.map((src) => (
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Attributed Stories
+            </div>
+            <div className="text-3xl font-extrabold text-[#008F5A] mt-1 font-mono">
+              {articles.length}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">Every story links to original source URL</p>
+          </div>
+
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Compliance Status
+            </div>
+            <div className="text-3xl font-extrabold text-[#1877F2] mt-1">
+              100% Verified
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">Full editorial credit &amp; canonical linking</p>
+          </div>
+        </div>
+
+        {/* Active Sources Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {loading ? (
+            <div className="col-span-full py-12 text-center text-xs text-slate-400 animate-pulse">
+              Loading source network...
+            </div>
+          ) : (
+            sources.map((src, i) => (
               <div
-                key={src.id}
-                className="bg-white rounded-2xl border border-editorialBorder/90 p-5 shadow-xs hover:border-emerald-brand/50 hover:shadow-md transition-all flex flex-col justify-between card-hover-modern"
+                key={src.id || i}
+                className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition space-y-4 flex flex-col justify-between"
               >
                 <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="font-serif font-bold text-base text-editorialText-primary">
-                        {src.name}
-                      </h3>
-                      <span className="inline-block px-2 py-0.5 mt-1 bg-emerald-50 text-emerald-deep border border-emerald-200 text-[10px] font-semibold rounded-full">
-                        {src.category}
-                      </span>
-                    </div>
-
-                    <span className="flex items-center space-x-1 text-emerald-700 text-[11px] font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">
-                      <ShieldCheck size={12} className="text-emerald-brand" />
+                  <div className="flex items-center justify-between">
+                    <span className="w-8 h-8 rounded-xl bg-[#EBF5FF] text-[#1877F2] flex items-center justify-center font-bold text-xs">
+                      {src.name.charAt(0)}
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center space-x-1">
+                      <ShieldCheck size={11} />
                       <span>Verified</span>
                     </span>
                   </div>
 
-                  <p className="text-xs text-editorialText-secondary mt-2.5 line-clamp-2">
-                    {src.description}
+                  <h3 className="font-bold text-base text-[#1C1E21] mt-3">{src.name}</h3>
+                  <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                    {src.description || 'Premier real estate intelligence newsfeed and property tracking agency.'}
                   </p>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-editorialBorder flex items-center justify-between">
-                  <div className="text-xs font-mono text-gray-600">
-                    Stories in DB: <strong className="text-editorialText-primary">{src.articleCount}</strong>
-                  </div>
-
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                   <a
                     href={src.url}
                     target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center space-x-1 text-xs font-semibold text-emerald-brand hover:underline"
+                    rel="noreferrer"
+                    className="text-xs font-bold text-[#1877F2] hover:underline flex items-center space-x-1"
                   >
                     <span>Visit Source</span>
                     <ExternalLink size={12} />
                   </a>
+
+                  <Link
+                    href={`/admin/articles?q=${encodeURIComponent(src.name)}`}
+                    className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg"
+                  >
+                    View Stories →
+                  </Link>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Real Ingested Articles Attribution Table */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-serif font-bold text-lg text-editorialText-primary flex items-center space-x-2">
-              <FileText size={18} className="text-emerald-brand" />
-              <span>Real Articles Ingested with Source Attribution ({articles.length})</span>
-            </h2>
-            <span className="text-xs font-mono text-gray-500">
-              100% Real Headlines &amp; Direct Source URLs
-            </span>
-          </div>
-
-          <div className="bg-white rounded-xl border border-editorialBorder shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm">
-                <thead className="bg-[#FAFBFB] text-gray-600 font-semibold border-b border-editorialBorder uppercase text-[11px] tracking-wider">
-                  <tr>
-                    <th className="py-3 px-4">Article Title</th>
-                    <th className="py-3 px-4">Category</th>
-                    <th className="py-3 px-4">Source Name</th>
-                    <th className="py-3 px-4">Original Reference URL</th>
-                    <th className="py-3 px-4 text-right">Live View</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-editorialBorder">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={5} className="text-center py-10 text-gray-500">
-                        Loading source attributions...
-                      </td>
-                    </tr>
-                  ) : articles.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="text-center py-10 text-gray-500">
-                        No articles found. Run database seed to populate real articles.
-                      </td>
-                    </tr>
-                  ) : (
-                    articles.map((art) => (
-                      <tr key={art.id} className="hover:bg-gray-50/80 transition">
-                        <td className="py-3.5 px-4 max-w-sm">
-                          <div className="font-semibold text-editorialText-primary line-clamp-1">
-                            {art.title}
-                          </div>
-                          <div className="text-[11px] text-gray-400 font-mono mt-0.5">
-                            slug: {art.slug}
-                          </div>
-                        </td>
-
-                        <td className="py-3.5 px-4 font-mono text-xs">
-                          <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-700">
-                            {art.category?.name || 'General'}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          <span className="inline-flex items-center space-x-1 font-semibold text-xs text-editorialText-primary">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-brand"></span>
-                            <span>{art.sourceName || 'PropNewsTime'}</span>
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 max-w-xs truncate font-mono text-xs">
-                          {art.sourceUrl ? (
-                            <a
-                              href={art.sourceUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline flex items-center space-x-1 truncate"
-                            >
-                              <span className="truncate">{art.sourceUrl}</span>
-                              <ExternalLink size={11} className="flex-shrink-0" />
-                            </a>
-                          ) : (
-                            <span className="text-gray-400">Direct Editorial</span>
-                          )}
-                        </td>
-
-                        <td className="py-3.5 px-4 text-right">
-                          <Link
-                            href={`/articles/${art.slug}`}
-                            target="_blank"
-                            className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-brand hover:bg-emerald-100 rounded border border-emerald-200 transition"
-                          >
-                            <span>Read Article</span>
-                            <ExternalLink size={11} />
-                          </Link>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            ))
+          )}
         </div>
 
         {/* Add Source Modal */}
         {showAddModal && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-editorialBorder pb-3">
-                <h3 className="font-serif font-bold text-lg text-editorialText-primary">
-                  Add Real Estate News Source
-                </h3>
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="text-gray-400 hover:text-black font-bold text-lg"
-                >
-                  &times;
+          <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-2xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-fade-in-up">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <h3 className="font-bold text-base text-[#1C1E21]">Add News Source</h3>
+                <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-700">
+                  <X size={18} />
                 </button>
               </div>
 
-              <form onSubmit={handleAddSource} className="space-y-3.5">
+              <form onSubmit={handleAddSource} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Source Portal Name
-                  </label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Source Name *</label>
                   <input
                     type="text"
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="e.g. PropNewsTime"
-                    className="w-full px-3 py-2 text-sm border border-editorialBorder rounded-lg focus:outline-none focus:border-emerald-brand"
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-[#1877F2] focus:bg-white"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Website URL
-                  </label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Website URL *</label>
                   <input
                     type="url"
                     required
                     value={formData.url}
                     onChange={(e) => setFormData({ ...formData, url: e.target.value })}
                     placeholder="https://propnewstime.com"
-                    className="w-full px-3 py-2 text-sm border border-editorialBorder rounded-lg focus:outline-none focus:border-emerald-brand font-mono"
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:border-[#1877F2] focus:bg-white"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Sector Coverage
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    placeholder="Residential, Commercial, RERA Policy"
-                    className="w-full px-3 py-2 text-sm border border-editorialBorder rounded-lg focus:outline-none focus:border-emerald-brand"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Description / Editorial Notes
-                  </label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Description</label>
                   <textarea
                     rows={2}
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Editorial coverage details..."
-                    className="w-full px-3 py-2 text-sm border border-editorialBorder rounded-lg focus:outline-none focus:border-emerald-brand"
+                    placeholder="Brief coverage area..."
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-[#1877F2] focus:bg-white"
                   />
                 </div>
-
-                <div className="pt-2 flex items-center justify-end space-x-3">
+                <div className="flex justify-end space-x-2 pt-2">
                   <button
                     type="button"
                     onClick={() => setShowAddModal(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-100"
+                    className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-emerald-brand hover:bg-emerald-hover text-white rounded-lg text-xs font-semibold shadow-sm"
+                    className="px-4 py-2 bg-[#1877F2] hover:bg-[#166FE5] text-white text-xs font-bold rounded-xl shadow-xs"
                   >
-                    Add Source
+                    Save Source
                   </button>
                 </div>
               </form>

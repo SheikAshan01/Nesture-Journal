@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import {
   User,
@@ -15,6 +15,7 @@ import {
   Shield,
   Sparkles,
   Camera,
+  Upload,
   Mail,
   Phone,
   MapPin,
@@ -42,6 +43,31 @@ export default function AdminSettingsPage() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileMsg, setProfileMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setProfileMsg({ type: 'error', text: 'Please select a valid image file (PNG, JPG, WebP).' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setProfileMsg({ type: 'error', text: 'Image file size must be less than 5MB.' });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setProfileAvatar(reader.result);
+        setProfileMsg({ type: 'success', text: 'Photo loaded from gallery! Click "Save Changes" below to apply.' });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Password State
   const [currentPassword, setCurrentPassword] = useState('');
@@ -122,7 +148,19 @@ export default function AdminSettingsPage() {
       if (!res.ok) {
         setProfileMsg({ type: 'error', text: data.error || 'Failed to update profile.' });
       } else {
-        setProfileMsg({ type: 'success', text: 'Profile details and photo updated successfully!' });
+        const updated = {
+          name: profileName,
+          email: profileEmail,
+          avatar: profileAvatar,
+          role: profileRole,
+        };
+        try {
+          sessionStorage.setItem('nesture_admin_user', JSON.stringify(updated));
+        } catch {}
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('nesture_profile_updated', { detail: updated }));
+        }
+        setProfileMsg({ type: 'success', text: 'Profile details and photo updated successfully! Live across all pages.' });
         setTimeout(() => setProfileMsg(null), 4000);
       }
     } catch (err: any) {
@@ -336,15 +374,33 @@ export default function AdminSettingsPage() {
                   </div>
                 </div>
 
-                <div className="flex-1 space-y-2 w-full">
-                  <div className="text-xs text-slate-500 font-medium">
-                    Enter any image URL or select from verified editorial avatars below:
+                <div className="flex-1 space-y-3 w-full">
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Gallery / File Upload Button */}
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex items-center space-x-2 px-4 py-2 bg-emerald-brand hover:bg-emerald-deep text-white text-xs font-bold rounded-xl shadow-xs transition btn-press"
+                    >
+                      <Upload size={14} />
+                      <span>Upload from Device / Gallery</span>
+                    </button>
+
+                    <span className="text-xs text-slate-400">or enter image web URL below</span>
                   </div>
+
                   <input
-                    type="url"
+                    type="text"
                     value={profileAvatar}
                     onChange={(e) => setProfileAvatar(e.target.value)}
-                    placeholder="https://images.unsplash.com/photo-..."
+                    placeholder="https://images.unsplash.com/photo-... or uploaded data:image"
                     className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-800 focus:outline-none focus:border-emerald-brand focus:bg-white transition"
                   />
 

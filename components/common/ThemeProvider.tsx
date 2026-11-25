@@ -24,6 +24,12 @@ export function applyThemeToDOM(t: typeof DEFAULT_THEME) {
   root.style.setProperty('--insights-img-height', t.insightsCardImageHeight || '180px');
   root.style.setProperty('--market-widget-height', t.marketWidgetHeight || '404px');
 
+  if (t.categoryColors) {
+    Object.entries(t.categoryColors).forEach(([cat, col]) => {
+      root.style.setProperty(`--cat-${cat.toLowerCase()}`, col as string);
+    });
+  }
+
   if (t.backgroundColor) {
     root.style.setProperty('--bg-page', t.backgroundColor);
     if (document.body) {
@@ -48,8 +54,20 @@ export function useTheme() {
   return useContext(ThemeContext);
 }
 
-export default function ThemeProvider({ children }: { children: React.ReactNode }) {
+export default function ThemeProvider({
+  children,
+  initialTheme,
+}: {
+  children: React.ReactNode;
+  initialTheme?: typeof DEFAULT_THEME;
+}) {
   const [theme, setTheme] = useState<typeof DEFAULT_THEME>(() => {
+    if (initialTheme) {
+      if (typeof window !== 'undefined') {
+        applyThemeToDOM(initialTheme);
+      }
+      return initialTheme;
+    }
     if (typeof window !== 'undefined') {
       try {
         const cached = localStorage.getItem('nesture_theme');
@@ -74,8 +92,8 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
   }, []);
 
   useEffect(() => {
-    // 1. Fetch live theme from database API
-    fetch('/api/theme')
+    // 1. Fetch live theme from database API with no-store cache
+    fetch('/api/theme', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data?.theme) {

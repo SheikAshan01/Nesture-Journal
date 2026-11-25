@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/components/common/ThemeProvider';
+import { getCategoryBadgeStyle } from '@/lib/theme';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -382,7 +383,8 @@ export default function HeroSection() {
                 {/* Highlight Badge */}
                 <div className="inline-block">
                   <span
-                    className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border ${card.badgeColor}`}
+                    style={getCategoryBadgeStyle(card.badge, theme?.categoryColors)}
+                    className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border"
                   >
                     {card.badge}
                   </span>

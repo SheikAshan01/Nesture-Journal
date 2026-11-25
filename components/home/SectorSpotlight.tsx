@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/components/common/ThemeProvider';
+import { getCategoryBadgeStyle } from '@/lib/theme';
 import {
   Layers,
   ArrowRight,
@@ -151,10 +152,14 @@ export default function SectorSpotlight() {
 
                   {/* Body Content */}
                   <div className="p-3.5 space-y-1.5">
-                    <div className="flex items-center space-x-1.5 text-[10px] font-semibold text-emerald-brand truncate">
-                      <span>{art.category?.name || 'General'}</span>
-                      <span className="text-gray-300">|</span>
-                      <span className="text-gray-400 font-normal">
+                    <div className="flex items-center space-x-2">
+                      <span
+                        style={getCategoryBadgeStyle(art.category?.name || 'General', theme?.categoryColors)}
+                        className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border"
+                      >
+                        {art.category?.name || 'General'}
+                      </span>
+                      <span className="text-[10px] text-gray-400 font-normal">
                         {new Date(art.publicationDate || Date.now()).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',

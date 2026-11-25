@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import ThemeProvider from '@/components/common/ThemeProvider';
+import prisma from '@/lib/db';
+import { DEFAULT_THEME } from '@/lib/theme';
 
 export const viewport: Viewport = {
   themeColor: '#071B2B',
@@ -47,11 +49,22 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  let initialTheme = DEFAULT_THEME;
+  try {
+    const settings = await prisma.siteSettings.findUnique({
+      where: { id: 'default' },
+      select: { themeConfig: true },
+    });
+    if (settings?.themeConfig) {
+      initialTheme = { ...DEFAULT_THEME, ...JSON.parse(settings.themeConfig) };
+    }
+  } catch {}
+
   const jsonLdOrg = {
     '@context': 'https://schema.org',
     '@type': 'NewsMediaOrganization',
@@ -77,6 +90,32 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              :root {
+                --emerald-brand: ${initialTheme.primaryColor || '#008F5A'};
+                --emerald-hover: ${initialTheme.secondaryColor || '#007A4D'};
+                --deep-green: ${initialTheme.secondaryColor || '#006B45'};
+                --primary-navy: ${initialTheme.navyColor || '#071B2B'};
+                --secondary-navy: ${initialTheme.navyColor || '#102B3D'};
+                --accent-color: ${initialTheme.accentColor || '#059669'};
+                --card-radius: ${initialTheme.borderRadius || '14px'};
+                --hero-height: ${initialTheme.heroHeight || '460px'};
+                --side-card-height: ${initialTheme.sideCardHeight || '85px'};
+                --insights-img-height: ${initialTheme.insightsCardImageHeight || '180px'};
+                --market-widget-height: ${initialTheme.marketWidgetHeight || '404px'};
+                --bg-page: ${initialTheme.backgroundColor || '#FFFFFF'};
+                ${Object.entries(initialTheme.categoryColors || {})
+                  .map(([c, val]) => `--cat-${c.toLowerCase()}: ${val};`)
+                  .join('\n')}
+              }
+              body {
+                background-color: var(--bg-page);
+              }
+            `,
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -116,7 +155,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen flex flex-col bg-white text-editorialText-primary">
-        <ThemeProvider>
+        <ThemeProvider initialTheme={initialTheme}>
           {children}
         </ThemeProvider>
       </body>

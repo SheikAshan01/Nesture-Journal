@@ -221,27 +221,34 @@ export default async function ArticleDetailPage({ params }: ArticlePageProps) {
 
         {/* Article Body Content */}
         <div className="prose prose-lg max-w-none text-editorialText-primary font-sans leading-relaxed space-y-6">
-          {article.content.split('\n\n').map((paragraph, idx) => {
-            if (paragraph.startsWith('### ')) {
+          {article.content.includes('<') ? (
+            <div
+              className="article-rich-html-content space-y-4 text-base sm:text-[17px] leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: article.content }}
+            />
+          ) : (
+            article.content.split('\n\n').map((paragraph, idx) => {
+              if (paragraph.startsWith('### ')) {
+                return (
+                  <h3 key={idx} className="font-serif font-bold text-xl sm:text-2xl text-editorialText-primary pt-4">
+                    {paragraph.replace('### ', '')}
+                  </h3>
+                );
+              }
+              if (paragraph.startsWith('## ')) {
+                return (
+                  <h2 key={idx} className="font-serif font-bold text-2xl sm:text-3xl text-editorialText-primary pt-6 border-b border-gray-100 pb-2">
+                    {paragraph.replace('## ', '')}
+                  </h2>
+                );
+              }
               return (
-                <h3 key={idx} className="font-serif font-bold text-xl sm:text-2xl text-editorialText-primary pt-4">
-                  {paragraph.replace('### ', '')}
-                </h3>
+                <p key={idx} className="text-base sm:text-[17px] text-editorialText-primary/90 leading-relaxed">
+                  {paragraph}
+                </p>
               );
-            }
-            if (paragraph.startsWith('## ')) {
-              return (
-                <h2 key={idx} className="font-serif font-bold text-2xl sm:text-3xl text-editorialText-primary pt-6 border-b border-gray-100 pb-2">
-                  {paragraph.replace('## ', '')}
-                </h2>
-              );
-            }
-            return (
-              <p key={idx} className="text-base sm:text-[17px] text-editorialText-primary/90 leading-relaxed">
-                {paragraph}
-              </p>
-            );
-          })}
+            })
+          )}
         </div>
 
         {/* Source Attribution Box matching user's requirement */}

@@ -9,26 +9,20 @@ import {
   Search,
   Filter,
   Edit,
-  Copy,
   Trash2,
   CheckCircle,
-  Clock,
-  Archive,
   ExternalLink,
-  Flame,
-  Zap,
-  Globe,
-  RotateCcw,
   Eye,
   X,
   FileText,
   Check,
   ChevronRight,
-  BookOpen,
-  Layers,
-  Sparkles,
-  ArrowUpRight,
   ShieldCheck,
+  LayoutGrid,
+  List,
+  Archive,
+  ArrowUpRight,
+  Globe,
 } from 'lucide-react';
 
 function ArticlesDeskContent() {
@@ -39,6 +33,7 @@ function ArticlesDeskContent() {
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [pageSize, setPageSize] = useState(10);
+  const [viewStyle, setViewStyle] = useState<'cards' | 'table'>('cards');
   const [activeTab, setActiveTab] = useState<'ALL' | 'PUBLISHED' | 'UNPUBLISHED'>(
     statusParam === 'PUBLISHED'
       ? 'PUBLISHED'
@@ -167,54 +162,54 @@ function ArticlesDeskContent() {
 
   return (
     <div className="space-y-6">
-      {/* Top 3 Interactive Metric Cards with 2026 Modern Design */}
+      {/* Top Interactive Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Total Stories Card */}
         <div
           onClick={() => setActiveTab('ALL')}
-          className={`bg-white p-5 rounded-2xl border transition-all duration-300 cursor-pointer card-hover-modern relative overflow-hidden ${
+          className={`bg-white p-5 rounded-2xl border transition-all duration-300 cursor-pointer relative overflow-hidden ${
             activeTab === 'ALL'
-              ? 'border-[#0284C7] ring-2 ring-[#0284C7]/20 shadow-md'
+              ? 'border-[#1877F2] ring-2 ring-[#1877F2]/20 shadow-md'
               : 'border-slate-200/90 hover:border-slate-300'
           }`}
         >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-[#0284C7]/5 rounded-bl-full pointer-events-none"></div>
+          <div className="absolute top-0 right-0 w-24 h-24 bg-[#1877F2]/5 rounded-bl-full pointer-events-none"></div>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Total Repository
             </span>
-            <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200 font-mono">
+            <span className="text-[10px] font-bold text-[#1877F2] bg-[#EBF5FF] px-2 py-0.5 rounded-full border border-[#1877F2]/20 font-mono">
               100% REAL DATA
             </span>
           </div>
-          <div className="text-3xl font-extrabold text-slate-900 mt-2 font-sans tracking-tight">
+          <div className="text-3xl font-extrabold text-[#1C1E21] mt-2 font-sans tracking-tight">
             {counts.total}
           </div>
-          <p className="text-[11px] text-slate-500 mt-1 flex items-center space-x-1">
-            <span>Verified PropNewsTime &amp; Realty &amp; More feeds</span>
+          <p className="text-[11px] text-slate-500 mt-1">
+            Verified PropNewsTime &amp; Realty &amp; More feeds
           </p>
         </div>
 
         {/* Published Stories Card */}
         <div
           onClick={() => setActiveTab('PUBLISHED')}
-          className={`bg-white p-5 rounded-2xl border transition-all duration-300 cursor-pointer card-hover-modern relative overflow-hidden ${
+          className={`bg-white p-5 rounded-2xl border transition-all duration-300 cursor-pointer relative overflow-hidden ${
             activeTab === 'PUBLISHED'
-              ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-md'
+              ? 'border-[#008F5A] ring-2 ring-[#008F5A]/20 shadow-md'
               : 'border-slate-200/90 hover:border-slate-300'
           }`}
         >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-bl-full pointer-events-none"></div>
+          <div className="absolute top-0 right-0 w-24 h-24 bg-[#008F5A]/5 rounded-bl-full pointer-events-none"></div>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center space-x-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-xs font-bold text-[#008F5A] uppercase tracking-wider flex items-center space-x-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#008F5A] animate-pulse"></span>
               <span>Published Articles</span>
             </span>
             <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-mono">
               LIVE ON SITE
             </span>
           </div>
-          <div className="text-3xl font-extrabold text-emerald-600 mt-2 font-sans tracking-tight">
+          <div className="text-3xl font-extrabold text-[#008F5A] mt-2 font-sans tracking-tight">
             {counts.published}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
@@ -225,7 +220,7 @@ function ArticlesDeskContent() {
         {/* Unpublished Stories Card */}
         <div
           onClick={() => setActiveTab('UNPUBLISHED')}
-          className={`bg-white p-5 rounded-2xl border transition-all duration-300 cursor-pointer card-hover-modern relative overflow-hidden ${
+          className={`bg-white p-5 rounded-2xl border transition-all duration-300 cursor-pointer relative overflow-hidden ${
             activeTab === 'UNPUBLISHED'
               ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-md'
               : 'border-slate-200/90 hover:border-slate-300'
@@ -258,23 +253,47 @@ function ArticlesDeskContent() {
         </div>
       )}
 
-      {/* Modern Header & Tab Switcher Bar */}
+      {/* Header & Tab Switcher Bar */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h1 className={`text-2xl sm:text-3xl tracking-tight font-extrabold ${activeTab === 'PUBLISHED' ? 'text-[#1E40AF]' : 'text-slate-900'}`}>
+          <h1 className={`text-2xl sm:text-3xl tracking-tight font-extrabold ${activeTab === 'PUBLISHED' ? 'text-[#008F5A]' : activeTab === 'UNPUBLISHED' ? 'text-amber-700' : 'text-[#1C1E21]'}`}>
             {getPageTitle()}
           </h1>
           <p className="text-xs text-slate-500 mt-1 flex items-center space-x-2">
-            <span>Enterprise Content Hub</span>
+            <span>Enterprise Editorial Desk</span>
             <span>•</span>
-            <span className="text-emerald-600 font-semibold">Zero Duplicate Titles</span>
+            <span className="text-emerald-600 font-semibold">Ordered Chronologically</span>
             <span>•</span>
-            <span>Verified Newsfeed Attribution</span>
+            <span>Verified Sources</span>
           </p>
         </div>
 
-        {/* Tab Buttons matching New Version UI */}
+        {/* Tab Buttons & View Switcher */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Card vs Table View Switcher */}
+          <div className="inline-flex p-0.5 bg-white border border-slate-200 rounded-xl mr-2 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setViewStyle('cards')}
+              title="Card Grid View"
+              className={`p-1.5 rounded-lg transition ${
+                viewStyle === 'cards' ? 'bg-[#1877F2] text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <LayoutGrid size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewStyle('table')}
+              title="Compact Table View"
+              className={`p-1.5 rounded-lg transition ${
+                viewStyle === 'table' ? 'bg-[#1877F2] text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <List size={15} />
+            </button>
+          </div>
+
           <button
             onClick={() => setActiveTab('ALL')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition btn-press ${
@@ -289,7 +308,7 @@ function ArticlesDeskContent() {
             onClick={() => setActiveTab('PUBLISHED')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition btn-press flex items-center space-x-1.5 ${
               activeTab === 'PUBLISHED'
-                ? 'bg-emerald-600 text-white shadow-xs'
+                ? 'bg-[#008F5A] text-white shadow-xs'
                 : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
             }`}
           >
@@ -310,7 +329,7 @@ function ArticlesDeskContent() {
 
           <Link
             href="/admin/articles/new"
-            className="inline-flex items-center space-x-1 px-3.5 py-1.5 bg-[#0284C7] hover:bg-[#0369A1] text-white text-xs font-bold rounded-xl transition btn-press shadow-xs ml-1"
+            className="inline-flex items-center space-x-1 px-3.5 py-1.5 bg-[#1877F2] hover:bg-[#166FE5] text-white text-xs font-bold rounded-xl transition btn-press shadow-xs ml-1"
           >
             <Plus size={14} />
             <span>Add Story</span>
@@ -326,7 +345,7 @@ function ArticlesDeskContent() {
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
-              className="px-2.5 py-1.5 border border-slate-300 rounded-lg font-bold text-slate-800 bg-slate-50 focus:outline-none focus:border-[#0284C7]"
+              className="px-2.5 py-1.5 border border-slate-300 rounded-lg font-bold text-slate-800 bg-slate-50 focus:outline-none focus:border-[#1877F2]"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>
@@ -345,17 +364,17 @@ function ArticlesDeskContent() {
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Instant search headline, source..."
+              placeholder="Search headline, source..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 border border-slate-300 rounded-xl text-xs focus:outline-none focus:border-[#0284C7] focus:ring-1 focus:ring-[#0284C7] transition"
+              className="w-full pl-9 pr-4 py-1.5 border border-slate-300 rounded-xl text-xs focus:outline-none focus:border-[#1877F2] focus:ring-1 focus:ring-[#1877F2] transition bg-slate-50 focus:bg-white"
             />
           </form>
 
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 bg-white focus:outline-none focus:border-[#0284C7]"
+            className="px-3 py-1.5 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 bg-white focus:outline-none focus:border-[#1877F2]"
           >
             <option value="">All Sectors</option>
             {categories.map((c) => (
@@ -376,16 +395,19 @@ function ArticlesDeskContent() {
         <div className="bg-white rounded-2xl border border-slate-200 p-16 text-center text-xs text-slate-400">
           No articles found matching criteria.
         </div>
-      ) : activeTab === 'UNPUBLISHED' ? (
+      ) : viewStyle === 'cards' ? (
         /* =========================================================================
-           NEW VERSION UNPUBLISHED EDITORIAL CARDS WITH SMOOTH HOVER ANIMATIONS
+           CARD VIEW (MATCHING USER REFERENCE IMAGE EXACTLY)
            ========================================================================= */
         <div className="space-y-4">
-          {visibleArticles.map((art) => {
+          {visibleArticles.map((art, index) => {
+            const isPub = art.status === 'PUBLISHED';
+            const sequentialNum = `#${String(index + 1).padStart(2, '0')}`;
+
             return (
               <div
                 key={art.id}
-                className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-xl transition-all duration-300 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 card-hover-modern group"
+                className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-lg transition-all duration-300 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 group"
               >
                 {/* Left Thumbnail with Hover Zoom */}
                 <div className="w-full md:w-52 h-36 flex-shrink-0 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 relative">
@@ -401,11 +423,14 @@ function ArticlesDeskContent() {
                   <span className="absolute top-2.5 left-2.5 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
                     {art.category?.name || 'Development'}
                   </span>
+                  <span className="absolute bottom-2.5 right-2.5 bg-white/90 backdrop-blur-xs text-slate-700 text-[10px] font-bold px-1.5 py-0.5 rounded-md font-mono">
+                    {sequentialNum}
+                  </span>
                 </div>
 
                 {/* Center Content */}
                 <div className="flex-1 min-w-0 pr-0 md:pr-4">
-                  <div className="flex items-center space-x-2 text-[11px] font-bold text-rose-600 mb-1">
+                  <div className="flex items-center space-x-2 text-[11px] font-bold mb-1">
                     <span className="bg-rose-50 text-rose-700 px-2 py-0.5 rounded border border-rose-200">
                       Source Name : {art.sourceName || 'PropNewsTime'}
                     </span>
@@ -415,7 +440,7 @@ function ArticlesDeskContent() {
 
                   <h3
                     onClick={() => setPreviewArticle(art)}
-                    className="font-bold text-base sm:text-lg text-slate-900 hover:text-[#0284C7] transition cursor-pointer leading-snug line-clamp-2"
+                    className="font-bold text-base sm:text-lg text-[#1C1E21] hover:text-[#1877F2] transition cursor-pointer leading-snug line-clamp-2"
                   >
                     {art.title}
                   </h3>
@@ -425,28 +450,28 @@ function ArticlesDeskContent() {
                   </p>
                 </div>
 
-                {/* Right Action Stack with Modern Micro-Interactions */}
-                <div className="w-full md:w-60 flex-shrink-0 flex flex-col items-start md:items-end justify-between border-t md:border-t-0 pt-3 md:pt-0 border-slate-100">
+                {/* Right Action Stack */}
+                <div className="w-full md:w-64 flex-shrink-0 flex flex-col items-start md:items-end justify-between border-t md:border-t-0 pt-3 md:pt-0 border-slate-100">
                   <div className="text-left md:text-right">
-                    <div className="font-extrabold text-xs text-slate-900 flex items-center md:justify-end space-x-1">
-                      <ShieldCheck size={13} className="text-emerald-600" />
+                    <div className="font-extrabold text-xs text-[#1C1E21] flex items-center md:justify-end space-x-1">
+                      <ShieldCheck size={14} className={isPub ? "text-[#008F5A]" : "text-amber-600"} />
                       <span>{art.sourceName || 'PropNewsTime'}</span>
                     </div>
                     <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                      Ready for Publication
+                      {isPub ? 'Live on Website Portal' : 'Ready for Publication'}
                     </div>
                   </div>
 
                   <div className="mt-3.5 flex flex-wrap gap-2 items-center justify-start md:justify-end w-full">
-                    {/* Original Link Button */}
+                    {/* Original Link */}
                     {art.sourceUrl && (
                       <a
                         href={art.sourceUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition btn-press flex items-center space-x-1"
+                        className="px-3 py-1.5 bg-[#EBF5FF] hover:bg-[#D8ECFF] text-[#1877F2] text-xs font-bold rounded-xl transition btn-press flex items-center space-x-1"
                       >
-                        <ExternalLink size={12} className="text-[#0284C7]" />
+                        <ExternalLink size={12} />
                         <span>Original Link</span>
                       </a>
                     )}
@@ -454,25 +479,53 @@ function ArticlesDeskContent() {
                     {/* Quick In-Page Reader Modal Button */}
                     <button
                       onClick={() => setPreviewArticle(art)}
-                      className="px-3 py-1.5 bg-[#0284C7] hover:bg-[#0369A1] text-white text-xs font-bold rounded-xl transition btn-press flex items-center space-x-1 shadow-xs"
+                      className="px-3 py-1.5 bg-[#1877F2] hover:bg-[#166FE5] text-white text-xs font-bold rounded-xl transition btn-press flex items-center space-x-1 shadow-xs"
                     >
                       <Eye size={12} />
                       <span>Website Link</span>
                     </button>
 
-                    {/* Fast 1-Click Publish Button */}
+                    {/* Publish / Unpublish Button */}
                     <button
                       onClick={() => handleTogglePublish(art.id, art.status)}
-                      className="px-4 py-1.5 bg-gradient-to-r from-[#EAB308] to-[#CA8A04] hover:from-[#CA8A04] hover:to-[#A16207] text-white text-xs font-extrabold rounded-xl shadow-xs transition btn-press flex items-center space-x-1"
+                      className={`px-3.5 py-1.5 text-xs font-extrabold rounded-xl shadow-xs transition btn-press flex items-center space-x-1 ${
+                        isPub
+                          ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                          : 'bg-gradient-to-r from-[#EAB308] to-[#CA8A04] hover:from-[#CA8A04] hover:to-[#A16207] text-white'
+                      }`}
                     >
                       <Check size={13} />
-                      <span>Publish</span>
+                      <span>{isPub ? 'Unpublish' : 'Publish'}</span>
                     </button>
 
-                    {/* Not Published Status Pill */}
-                    <span className="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold rounded-lg font-mono">
-                      Not Published
+                    {/* Status Pill */}
+                    <span
+                      className={`px-2.5 py-1 text-[10px] font-bold rounded-lg font-mono ${
+                        isPub
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-rose-50 text-rose-700 border border-rose-200'
+                      }`}
+                    >
+                      {isPub ? 'Published' : 'Not Published'}
                     </span>
+
+                    {/* Edit Button */}
+                    <Link
+                      href={`/admin/articles/${art.id}/edit`}
+                      className="p-1.5 text-slate-500 hover:text-[#1877F2] hover:bg-slate-100 rounded-lg transition"
+                      title="Edit Article"
+                    >
+                      <Edit size={14} />
+                    </Link>
+
+                    {/* Trash Button */}
+                    <button
+                      onClick={() => handleTrash(art.id, art.title)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                      title="Move to Trash"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -481,55 +534,54 @@ function ArticlesDeskContent() {
         </div>
       ) : (
         /* =========================================================================
-           NEW VERSION PUBLISHED DATA TABLE WITH POLISHED DEEP NAVY HEADER
+           TABLE VIEW (ORDERED SEQUENTIALLY, NO FAKE ARBITRARY IDs)
            ========================================================================= */
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#1B365D] text-white font-bold text-xs uppercase tracking-wider">
+              <thead className="bg-[#1C1E21] text-white font-bold text-xs uppercase tracking-wider">
                 <tr>
-                  <th className="py-4 px-4 font-bold">ID</th>
-                  <th className="py-4 px-4 font-bold">Headline &amp; Source</th>
-                  <th className="py-4 px-4 font-bold">Image</th>
-                  <th className="py-4 px-4 font-bold">Category</th>
-                  <th className="py-4 px-4 font-bold">seo_keywords</th>
-                  <th className="py-4 px-4 font-bold">Publish Date</th>
-                  <th className="py-4 px-4 font-bold text-center">Actions</th>
+                  <th className="py-3.5 px-4 font-bold">#</th>
+                  <th className="py-3.5 px-4 font-bold">Headline &amp; Source</th>
+                  <th className="py-3.5 px-4 font-bold">Image</th>
+                  <th className="py-3.5 px-4 font-bold">Category</th>
+                  <th className="py-3.5 px-4 font-bold">Status</th>
+                  <th className="py-3.5 px-4 font-bold">Publish Date</th>
+                  <th className="py-3.5 px-4 font-bold text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {visibleArticles.map((art, index) => {
                   const dateStr = art.publicationDate || art.createdAt || '2026-11-24';
                   const formattedDate = new Date(dateStr).toISOString().split('T')[0];
-                  const displayId = (7833 - index * 15).toString();
-
-                  const keywords = `${art.category?.name || 'real estate'}, ${art.sourceName || 'news'}, luxury, housing market`;
+                  const sequentialNum = `#${String(index + 1).padStart(2, '0')}`;
+                  const isPub = art.status === 'PUBLISHED';
 
                   return (
                     <tr key={art.id} className="hover:bg-slate-50/80 transition duration-150">
-                      {/* ID */}
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900 whitespace-nowrap">
-                        #{displayId}
+                      {/* Sequential Numbering (Clean Order Logic) */}
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-700 whitespace-nowrap">
+                        {sequentialNum}
                       </td>
 
                       {/* Title */}
                       <td className="py-3.5 px-4 font-medium text-slate-900 max-w-sm">
                         <span
                           onClick={() => setPreviewArticle(art)}
-                          className="hover:text-[#0284C7] cursor-pointer line-clamp-2 font-bold leading-snug"
+                          className="hover:text-[#1877F2] cursor-pointer line-clamp-2 font-bold leading-snug"
                         >
                           {art.title}
                         </span>
                         {art.sourceName && (
-                          <div className="text-[11px] text-slate-500 mt-0.5 flex items-center space-x-1">
-                            <span className="text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-100">
+                          <div className="text-[11px] text-slate-500 mt-1 flex items-center space-x-1">
+                            <span className="text-[#008F5A] font-semibold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-100">
                               {art.sourceName}
                             </span>
                           </div>
                         )}
                       </td>
 
-                      {/* Image Thumbnail with Micro-Hover */}
+                      {/* Thumbnail */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="w-14 h-10 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 flex-shrink-0 group">
                           <img
@@ -547,13 +599,21 @@ function ArticlesDeskContent() {
                       {/* Category Pill */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                          {art.category?.name ? art.category.name.replace(/\s+/g, '_') : 'General'}
+                          {art.category?.name || 'General'}
                         </span>
                       </td>
 
-                      {/* SEO Keywords */}
-                      <td className="py-3.5 px-4 text-slate-500 max-w-xs truncate font-mono text-[11px]">
-                        {keywords}
+                      {/* Status */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono ${
+                            isPub
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}
+                        >
+                          {isPub ? 'PUBLISHED' : 'DRAFT'}
+                        </span>
                       </td>
 
                       {/* Publish Date */}
@@ -561,20 +621,20 @@ function ArticlesDeskContent() {
                         {formattedDate}
                       </td>
 
-                      {/* Action Buttons */}
+                      {/* Actions */}
                       <td className="py-3.5 px-4 whitespace-nowrap text-center">
                         <div className="flex items-center justify-center space-x-2">
                           <button
                             onClick={() => setPreviewArticle(art)}
-                            className="px-2.5 py-1 bg-[#10B981] hover:bg-[#059669] text-white font-bold rounded-lg text-xs flex items-center space-x-1 transition btn-press shadow-2xs"
+                            className="px-2.5 py-1 bg-[#1877F2] hover:bg-[#166FE5] text-white font-bold rounded-lg text-xs flex items-center space-x-1 transition btn-press shadow-2xs"
                           >
-                            <ExternalLink size={11} />
+                            <Eye size={11} />
                             <span>View</span>
                           </button>
 
                           <Link
                             href={`/admin/articles/${art.id}/edit`}
-                            className="px-2.5 py-1 bg-[#F59E0B] hover:bg-[#D97706] text-white font-bold rounded-lg text-xs flex items-center space-x-1 transition btn-press shadow-2xs"
+                            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-xs flex items-center space-x-1 transition btn-press shadow-2xs"
                           >
                             <Edit size={11} />
                             <span>Edit</span>
@@ -582,7 +642,7 @@ function ArticlesDeskContent() {
 
                           <button
                             onClick={() => handleTogglePublish(art.id, art.status)}
-                            title="Unpublish to Draft"
+                            title={isPub ? 'Unpublish to Draft' : 'Publish Live'}
                             className="p-1 text-slate-400 hover:text-amber-600 rounded-lg hover:bg-amber-50 transition"
                           >
                             <Archive size={14} />
@@ -607,10 +667,10 @@ function ArticlesDeskContent() {
       )}
 
       {/* =========================================================================
-         IN-PAGE QUICK READER PREVIEW MODAL ("nerya page poga vena mostly")
+         IN-PAGE QUICK READER PREVIEW MODAL
          ========================================================================= */}
       {previewArticle && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
           <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 animate-fade-in-up">
             {/* Modal Top Bar */}
             <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-slate-100 px-6 py-4 flex items-center justify-between z-10">
@@ -653,7 +713,7 @@ function ArticlesDeskContent() {
               )}
 
               <div className="space-y-3">
-                <div className="flex items-center space-x-2 text-xs text-emerald-700 font-bold uppercase tracking-wider">
+                <div className="flex items-center space-x-2 text-xs text-[#008F5A] font-bold uppercase tracking-wider">
                   <span>{previewArticle.category?.name || 'Real Estate Intelligence'}</span>
                   <span>•</span>
                   <span>{previewArticle.readingTime || 5} min read</span>
@@ -669,9 +729,9 @@ function ArticlesDeskContent() {
               </div>
 
               {/* Source Attribution Box */}
-              <div className="p-4 bg-sky-50/80 border border-sky-200 rounded-2xl flex items-center justify-between text-xs">
+              <div className="p-4 bg-[#EBF5FF] border border-[#1877F2]/20 rounded-2xl flex items-center justify-between text-xs">
                 <div className="flex items-center space-x-2">
-                  <Globe size={16} className="text-[#0284C7]" />
+                  <Globe size={16} className="text-[#1877F2]" />
                   <span className="font-bold text-slate-900">
                     Source Attribution: {previewArticle.sourceName || 'PropNewsTime'}
                   </span>
@@ -681,7 +741,7 @@ function ArticlesDeskContent() {
                     href={previewArticle.sourceUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-[#0284C7] font-bold hover:underline flex items-center space-x-1"
+                    className="text-[#1877F2] font-bold hover:underline flex items-center space-x-1"
                   >
                     <span>Original Source Link</span>
                     <ExternalLink size={12} />
@@ -708,7 +768,7 @@ function ArticlesDeskContent() {
                 </Link>
                 <Link
                   href={`/admin/articles/${previewArticle.id}/edit`}
-                  className="px-3.5 py-1.5 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-xl transition flex items-center space-x-1 btn-press"
+                  className="px-3.5 py-1.5 bg-[#1877F2] hover:bg-[#166FE5] text-white text-xs font-bold rounded-xl transition flex items-center space-x-1 btn-press shadow-xs"
                 >
                   <Edit size={13} />
                   <span>Full Edit</span>
@@ -721,7 +781,7 @@ function ArticlesDeskContent() {
                   className={`px-5 py-1.5 text-xs font-extrabold rounded-xl transition btn-press shadow-xs ${
                     previewArticle.status === 'PUBLISHED'
                       ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-[#008F5A] hover:bg-[#006B45] text-white'
                   }`}
                 >
                   {previewArticle.status === 'PUBLISHED' ? 'Unpublish to Draft' : 'Publish Live Now'}

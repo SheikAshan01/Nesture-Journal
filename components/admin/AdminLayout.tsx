@@ -1,139 +1,127 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import {
-  Home,
+  LayoutDashboard,
+  Palette,
   PlusCircle,
-  FileText,
+  FileCheck,
+  Layers,
   Trash2,
-  Users,
   Settings,
+  FolderTree,
   Search,
   Globe,
+  Sliders,
+  Bell,
   LogOut,
   Menu,
   X,
   ExternalLink,
   ChevronRight,
-  Database,
-  Bell,
-  CheckCircle,
-  Clock,
-  ChevronDown,
-  Sparkles,
-  Layers,
-  Shield,
-  Plus,
-  Palette,
   PanelLeftClose,
   PanelLeftOpen,
+  Plus,
+  ShieldCheck,
+  ChevronDown,
+  ArrowRight,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
-function SidebarNavList({ pathname, onNavigate }: { pathname: string; onNavigate: () => void }) {
+interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ElementType;
+  isActive: boolean;
+  badge?: string;
+  keywords?: string[];
+  target?: string;
+}
+
+const ADMIN_MODULES = [
+  { label: 'Dashboard', href: '/admin', icon: LayoutDashboard, keywords: ['home', 'analytics', 'overview', 'stats', 'operations'] },
+  { label: 'Visual Customizer', href: '/admin/customize', icon: Palette, badge: 'LIVE', target: '_blank', keywords: ['theme', 'color', 'banner', 'size', 'resize', 'layout', 'figma'] },
+  { label: 'Add New Article', href: '/admin/articles/new', icon: PlusCircle, keywords: ['new', 'story', 'post', 'create', 'write', 'article'] },
+  { label: 'Published Articles', href: '/admin/articles?status=PUBLISHED', icon: FileCheck, keywords: ['published', 'live', 'stories', 'news', 'articles'] },
+  { label: 'Unpublished Articles', href: '/admin/articles?status=UNPUBLISHED', icon: Layers, keywords: ['draft', 'unpublished', 'pending', 'review'] },
+  { label: 'Articles Delete', href: '/admin/articles/deleted', icon: Trash2, keywords: ['trash', 'deleted', 'restore', 'remove'] },
+  { label: 'Taxonomy & Category Architecture', href: '/admin/categories', icon: FolderTree, keywords: ['categories', 'taxonomy', 'architecture', 'sectors', 'badges'] },
+  { label: 'Navbar Settings & Menu Architecture', href: '/admin/settings/navbar', icon: Sliders, keywords: ['navbar', 'settings', 'menu', 'architecture', 'navigation', 'links'] },
+  { label: 'SEO Engine & Indexation Audit', href: '/admin/seo', icon: Search, keywords: ['seo', 'engine', 'indexation', 'audit', 'meta', 'keywords', 'search engine', 'ranking'] },
+  { label: 'News Sources & Content Attribution', href: '/admin/sources', icon: Globe, keywords: ['news', 'sources', 'content', 'attribution', 'feeds', 'rss', 'propnewstime'] },
+  { label: 'Profile & Platform Settings', href: '/admin/settings', icon: Settings, keywords: ['profile', 'platform', 'settings', 'account', 'password', 'avatar', 'photo', 'branding'] },
+];
+
+function SidebarNavList({
+  pathname,
+  isExpanded,
+  onNavigate,
+}: {
+  pathname: string;
+  isExpanded: boolean;
+  onNavigate: () => void;
+}) {
   const searchParams = useSearchParams();
   const currentStatus = searchParams?.get('status');
 
-  const navItems = [
-    {
-      label: 'Dashboard',
-      href: '/admin',
-      icon: Home,
-      isActive: pathname === '/admin',
-    },
-    {
-      label: 'Visual Customizer',
-      href: '/admin/customize',
-      icon: Palette,
-      isActive: pathname === '/admin/customize',
-    },
-    {
-      label: 'Add Article',
-      href: '/admin/articles/new',
-      icon: PlusCircle,
-      isActive: pathname === '/admin/articles/new',
-    },
-    {
-      label: 'Show Published Articles',
-      href: '/admin/articles?status=PUBLISHED',
-      icon: FileText,
-      isActive: pathname === '/admin/articles' && currentStatus === 'PUBLISHED',
-    },
-    {
-      label: 'Show Unpublished Articles',
-      href: '/admin/articles?status=UNPUBLISHED',
-      icon: Layers,
-      isActive: pathname === '/admin/articles' && currentStatus === 'UNPUBLISHED',
-    },
-    {
-      label: 'Articles Delete',
-      href: '/admin/articles/deleted',
-      icon: Trash2,
-      isActive: pathname === '/admin/articles/deleted',
-    },
-    {
-      label: 'Navbar Settings',
-      href: '/admin/settings/navbar',
-      icon: Settings,
-      isActive: pathname === '/admin/settings/navbar',
-    },
-    {
-      label: 'Category Settings',
-      href: '/admin/categories',
-      icon: Settings,
-      isActive: pathname === '/admin/categories',
-    },
-    {
-      label: 'Main Pages SEO',
-      href: '/admin/seo',
-      icon: Search,
-      isActive: pathname === '/admin/seo',
-    },
-    {
-      label: 'News Sources & Feeds',
-      href: '/admin/sources',
-      icon: Globe,
-      isActive: pathname === '/admin/sources',
-    },
-    {
-      label: 'Profile & Settings',
-      href: '/admin/settings',
-      icon: Settings,
-      isActive: pathname === '/admin/settings',
-    },
-  ];
-
   return (
-    <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-      {navItems.map((item) => {
+    <nav className="flex-1 px-2.5 py-3 space-y-1.5 overflow-y-auto no-scrollbar">
+      {ADMIN_MODULES.map((item) => {
         const Icon = item.icon;
+        const isActive =
+          item.href.includes('status=PUBLISHED')
+            ? pathname === '/admin/articles' && currentStatus === 'PUBLISHED'
+            : item.href.includes('status=UNPUBLISHED')
+            ? pathname === '/admin/articles' && currentStatus === 'UNPUBLISHED'
+            : pathname === item.href;
+
         return (
           <Link
             key={item.href}
             href={item.href}
+            target={item.target}
             onClick={onNavigate}
-            className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 group ${
-              item.isActive
-                ? 'bg-gradient-to-r from-[#0284C7]/25 via-[#0284C7]/15 to-transparent text-white font-bold border-l-[3px] border-[#38BDF8] shadow-xs'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            title={!isExpanded ? item.label : undefined}
+            className={`group relative flex items-center h-10 px-2.5 rounded-xl text-xs font-semibold transition-colors duration-150 ${
+              isActive
+                ? 'bg-[#EBF5FF] text-[#1877F2] font-bold shadow-2xs'
+                : 'text-[#1C1E21] hover:bg-[#F0F2F5] hover:text-[#050505]'
             }`}
           >
-            <div className="flex items-center space-x-3 min-w-0">
+            {/* Stable Icon Container - Never Jumps */}
+            <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
               <Icon
-                size={17}
-                className={`flex-shrink-0 transition-transform duration-200 group-hover:scale-110 ${
-                  item.isActive ? 'text-[#38BDF8]' : 'text-slate-400 group-hover:text-slate-200'
+                size={18}
+                className={`transition-colors duration-150 ${
+                  isActive ? 'text-[#1877F2]' : 'text-[#65676B] group-hover:text-[#1C1E21]'
                 }`}
               />
-              <span className="truncate">{item.label}</span>
             </div>
-            {item.isActive && (
-              <ChevronRight size={13} className="text-[#38BDF8] animate-pulse" />
+
+            {/* Smoothly Sliding Text Label */}
+            <div
+              className={`ml-3 flex-1 flex items-center justify-between min-w-0 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                isExpanded ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0 pointer-events-none'
+              }`}
+            >
+              <span className="truncate whitespace-nowrap">{item.label}</span>
+              {item.badge && (
+                <span className="text-[10px] font-mono font-bold bg-[#1877F2]/10 text-[#1877F2] px-1.5 py-0.5 rounded ml-1.5 flex-shrink-0">
+                  {item.badge}
+                </span>
+              )}
+            </div>
+
+            {/* Floating Tooltip when Collapsed to Slim Rail */}
+            {!isExpanded && (
+              <div className="absolute left-16 z-50 px-2.5 py-1.5 bg-[#1C1E21] text-white text-[11px] font-semibold rounded-md shadow-xl whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 border border-slate-700">
+                {item.label}
+              </div>
             )}
           </Link>
         );
@@ -166,6 +154,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
+  const [adminSearchOpen, setAdminSearchOpen] = useState(false);
+  const [adminSearchQuery, setAdminSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     try {
@@ -185,9 +177,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       return next;
     });
   };
+
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
-  // If user already authenticated in memory or session, NEVER flash loading screen
   const [loading, setLoading] = useState<boolean>(() => {
     if (globalAdminUser) return false;
     if (typeof window !== 'undefined' && sessionStorage.getItem('nesture_admin_user')) {
@@ -195,6 +187,22 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     }
     return true;
   });
+
+  // Listen to profile updates live across the window
+  useEffect(() => {
+    const handleProfileUpdate = (e: any) => {
+      if (e?.detail) {
+        setUser((prev) => ({ ...prev, ...e.detail }));
+        globalAdminUser = { ...globalAdminUser, ...e.detail };
+        try {
+          sessionStorage.setItem('nesture_admin_user', JSON.stringify({ ...globalAdminUser, ...e.detail }));
+        } catch {}
+      }
+    };
+
+    window.addEventListener('nesture_profile_updated', handleProfileUpdate);
+    return () => window.removeEventListener('nesture_profile_updated', handleProfileUpdate);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -248,12 +256,29 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     }
   };
 
+  const handleOpenAdminSearch = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setAdminSearchOpen(true);
+    setTimeout(() => searchInputRef.current?.focus(), 50);
+  };
+
+  const filteredAdminModules = ADMIN_MODULES.filter((m) => {
+    if (!adminSearchQuery.trim()) return true;
+    const q = adminSearchQuery.toLowerCase();
+    return (
+      m.label.toLowerCase().includes(q) ||
+      m.href.toLowerCase().includes(q) ||
+      m.keywords?.some((k) => k.toLowerCase().includes(q))
+    );
+  });
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center text-slate-800">
+      <div className="min-h-screen bg-[#F0F2F5] flex items-center justify-center text-slate-800">
         <div className="flex items-center space-x-3 bg-white p-5 rounded-2xl border border-slate-200/90 shadow-md">
-          <div className="w-5 h-5 border-2 border-emerald-brand border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-xs font-semibold tracking-wide text-slate-600">
+          <div className="w-5 h-5 border-2 border-[#1877F2] border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-xs font-semibold tracking-wide text-slate-700">
             Loading Editorial Console...
           </span>
         </div>
@@ -261,122 +286,153 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     );
   }
 
+  // Hover-to-expand feature (Meta Ads Manager behavior: hovering opens side menu when collapsed)
+  const isExpanded = sidebarOpen || isHovered;
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col md:flex-row antialiased md:h-screen md:overflow-hidden">
+    <div className="min-h-screen bg-[#F0F2F5] text-[#1C1E21] flex flex-col md:flex-row antialiased md:h-screen md:overflow-hidden font-sans">
       {/* Mobile Top Header */}
-      <header className="md:hidden bg-[#0A1628] text-white p-4 flex items-center justify-between border-b border-slate-800 sticky top-0 z-40">
-        <div className="flex items-center space-x-2">
-          <span className="font-sans font-extrabold text-xl text-white">Nesture</span>
-          <span className="font-sans font-extrabold text-xl text-[#38BDF8]">Journal</span>
-          <span className="text-[10px] bg-[#38BDF8]/20 text-[#38BDF8] px-2 py-0.5 rounded-full font-mono font-bold">PRO</span>
+      <header className="md:hidden bg-white text-slate-900 p-3.5 flex items-center justify-between border-b border-slate-200 sticky top-0 z-40 shadow-2xs">
+        <div className="flex items-center space-x-2.5">
+          <img
+            src="/images/nesture-official-logo.png"
+            alt="Nesture Journal"
+            className="h-8 w-auto object-contain"
+          />
+          <span className="text-[10px] font-bold text-[#1877F2] bg-[#EBF5FF] px-2 py-0.5 rounded-full font-mono">
+            PRO
+          </span>
         </div>
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition"
+          className="p-2 rounded-lg text-slate-600 hover:bg-[#F0F2F5] transition"
         >
           {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
       </header>
 
-      {/* Modern Next-Gen Sidebar - Fixed, Collapsible with Smooth Auto-Adjust */}
+      {/* Meta Ads Manager Style Sidebar:
+          - Pure Clean White Theme
+          - Silky smooth hover-to-expand transition (cubic-bezier)
+          - Logo + Brand Name (Removed "ADS & EDITORIAL")
+          - Manual toggle buttons removed as requested
+          - Integrated Quick Admin Search Palette
+      */}
       <aside
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         className={`${
           mobileMenuOpen ? 'block' : 'hidden'
         } md:flex flex-col ${
-          sidebarOpen ? 'md:w-64' : 'md:w-0 md:opacity-0 md:border-r-0 md:pointer-events-none md:overflow-hidden'
-        } md:h-screen md:sticky md:top-0 md:overflow-hidden bg-gradient-to-b from-[#0B1528] via-[#091122] to-[#060D1A] text-slate-200 border-r border-[#15233C] flex-shrink-0 z-30 transition-all duration-300 ease-in-out`}
+          isHovered ? 'md:w-64 shadow-xl' : 'md:w-16 shadow-2xs'
+        } md:h-screen md:sticky md:top-0 md:overflow-hidden bg-white text-[#1C1E21] border-r border-[#E4E6EB] flex-shrink-0 z-30 transition-[width,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]`}
       >
-        {/* Brand Header */}
-        <div className="px-5 py-5 border-b border-[#15233C] hidden md:flex items-center justify-between flex-shrink-0">
-          <Link href="/admin" className="flex items-baseline space-x-1 group">
-            <span className="font-sans font-extrabold text-2xl tracking-tight text-white transition-transform group-hover:scale-105">
-              Nesture
-            </span>
-            <span className="font-sans font-extrabold text-2xl tracking-tight text-[#38BDF8] transition-transform group-hover:scale-105">
-              Journal
-            </span>
-          </Link>
-          <div className="flex items-center space-x-1.5">
-            <span className="text-[10px] font-mono font-bold text-[#38BDF8] bg-[#38BDF8]/10 px-2 py-0.5 rounded-full border border-[#38BDF8]/30">
-              PRO
-            </span>
-            <button
-              onClick={toggleSidebar}
-              title="Close Side Navigation"
-              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition btn-press"
+        {/* Top Header: Official Logo (Smoothly reveals brand text on hover, no toggle button) */}
+        <div className="h-16 px-3 border-b border-[#E4E6EB] flex items-center flex-shrink-0 overflow-hidden">
+          <Link href="/admin" className="flex items-center min-w-0 group w-full">
+            <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
+              <img
+                src="/images/nesture-official-logo.png"
+                alt="Nesture Journal"
+                className="h-8 w-auto object-contain flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
+              />
+            </div>
+            <div
+              className={`min-w-0 ml-2.5 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden ${
+                isHovered ? 'opacity-100 max-w-[170px]' : 'opacity-0 max-w-0 pointer-events-none'
+              }`}
             >
-              <PanelLeftClose size={16} />
-            </button>
-          </div>
+              <div className="font-serif font-extrabold text-sm tracking-tight text-[#1C1E21] leading-tight whitespace-nowrap">
+                Nesture Journal
+              </div>
+              <div className="text-[10px] font-bold text-[#1877F2] font-mono leading-none mt-0.5">
+                PRO ADMIN
+              </div>
+            </div>
+          </Link>
         </div>
 
-        {/* Live System Status Indicator (Replaced the clunky user pill as requested) */}
-        <div className="px-5 py-3 bg-[#08101E]/80 border-b border-[#15233C] flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center space-x-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="text-[11px] font-semibold text-slate-300">Live PostgreSQL Engine</span>
-          </div>
-          <span className="text-[10px] font-mono font-semibold text-emerald-400">100% REAL</span>
-        </div>
-
-        {/* Sidebar Nav Items with internal smooth scrollbar */}
-        <Suspense fallback={<div className="flex-1 px-3 py-4 space-y-1 text-xs text-slate-500">Loading modules...</div>}>
-          <SidebarNavList pathname={pathname} onNavigate={() => setMobileMenuOpen(false)} />
+        {/* Navigation Items List with Meta Ads Styling */}
+        <Suspense fallback={<div className="flex-1 p-3 text-xs text-slate-400">Loading modules...</div>}>
+          <SidebarNavList
+            pathname={pathname}
+            isExpanded={isHovered}
+            onNavigate={() => setMobileMenuOpen(false)}
+          />
         </Suspense>
 
-        {/* Bottom Profile & Session Card */}
-        <div className="p-4 border-t border-[#15233C] bg-[#070E1B] flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <Link
-              href="/admin/settings"
-              title="Edit Profile & Account Settings"
-              className="flex items-center space-x-2.5 min-w-0 hover:opacity-85 transition group"
-            >
-              <img
-                src={user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&h=120&q=80"}
-                alt=""
-                className="w-8 h-8 rounded-full object-cover border border-[#38BDF8]/40 ring-2 ring-[#38BDF8]/10 group-hover:ring-[#38BDF8]/40 transition"
-              />
-              <div className="min-w-0">
-                <div className="text-xs font-bold text-white truncate group-hover:text-[#38BDF8] transition">{user?.name || 'admin'}</div>
-                <div className="text-[10px] text-[#38BDF8] font-mono font-medium truncate uppercase">{user?.role || 'SUPER_ADMIN'}</div>
-              </div>
-            </Link>
+        {/* Thin Divider Line Before Bottom Controls */}
+        <div className="my-1 border-b border-[#E4E6EB] mx-3"></div>
+
+        {/* Bottom Utility Bar: Clean Search Tool & Profile */}
+        <div className="p-2 border-t border-[#E4E6EB] bg-white flex-shrink-0 overflow-hidden">
+          <div className="space-y-1.5">
+            {/* Quick Jump Search Button */}
             <button
-              onClick={handleLogout}
-              title="Sign Out Session"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition btn-press"
+              type="button"
+              onClick={handleOpenAdminSearch}
+              title="Search Admin Modules"
+              className="w-full flex items-center h-10 px-2.5 rounded-xl text-xs font-semibold text-[#65676B] hover:text-[#1877F2] hover:bg-[#EBF5FF] transition-colors"
             >
-              <LogOut size={16} />
+              <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                <Search size={18} />
+              </div>
+              <span
+                className={`ml-3 whitespace-nowrap overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                  isHovered ? 'opacity-100 max-w-[180px]' : 'opacity-0 max-w-0 pointer-events-none'
+                }`}
+              >
+                Quick Jump
+              </span>
             </button>
+
+            {/* User Profile Mini Bar with Live Avatar Sync */}
+            <div className="flex items-center rounded-xl bg-[#F0F2F5] hover:bg-slate-200/80 transition-colors p-1.5 overflow-hidden">
+              <Link
+                href="/admin/settings"
+                className="flex items-center min-w-0 flex-1"
+                title="Edit Account Profile"
+              >
+                <div className="w-7 h-7 flex items-center justify-center flex-shrink-0">
+                  <img
+                    src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&h=120&q=80'}
+                    alt=""
+                    className="w-7 h-7 rounded-full object-cover border border-slate-300"
+                  />
+                </div>
+                <div
+                  className={`ml-2.5 min-w-0 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                    isHovered ? 'opacity-100 max-w-[140px]' : 'opacity-0 max-w-0 pointer-events-none'
+                  }`}
+                >
+                  <div className="text-xs font-bold text-[#1C1E21] truncate">{user?.name || 'Director'}</div>
+                  <div className="text-[10px] text-[#1877F2] font-semibold truncate font-mono uppercase">{user?.role || 'SUPER_ADMIN'}</div>
+                </div>
+              </Link>
+              {isHovered && (
+                <button
+                  onClick={handleLogout}
+                  title="Sign Out Session"
+                  className="p-1 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition flex-shrink-0 ml-1"
+                >
+                  <LogOut size={14} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </aside>
 
-      {/* Main Content Area - Auto-Adjusts Width Smoothly When Sidebar Opens/Closes */}
-      <main className="flex-1 flex flex-col min-w-0 md:h-screen md:overflow-y-auto bg-[#F8FAFC] transition-all duration-300 ease-in-out">
-        {/* Next-Gen Glassmorphic Top Header Bar */}
-        <header className="glass-header border-b border-slate-200/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-xs transition-all">
-          {/* Breadcrumb Context with Sidebar Toggle Button */}
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col min-w-0 md:h-screen md:overflow-y-auto bg-[#F0F2F5] transition-all duration-200 ease-in-out">
+        {/* Clean Glassmorphic Top Header Bar */}
+        <header className="bg-white border-b border-[#E4E6EB] px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-2xs">
+          {/* Breadcrumb Context */}
           <div className="flex items-center space-x-3">
-            {!sidebarOpen && (
-              <button
-                type="button"
-                onClick={toggleSidebar}
-                title="Expand Side Navigation"
-                className="hidden md:inline-flex items-center justify-center p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition btn-press border border-slate-200 shadow-2xs group"
-              >
-                <PanelLeftOpen size={18} className="text-[#0284C7] group-hover:scale-110 transition-transform" />
-              </button>
-            )}
-
             <div className="flex items-center space-x-2 text-xs text-slate-500">
-              <span className="font-extrabold text-slate-900">Nesture Journal Admin</span>
+              <span className="font-extrabold text-[#1C1E21]">Nesture Journal Admin</span>
               <span className="text-slate-300">/</span>
-              <span className="text-slate-600 font-semibold capitalize">
+              <span className="text-slate-700 font-semibold capitalize">
                 {pathname === '/admin' ? 'Dashboard' : pathname.replace('/admin/', '').replace('/', ' / ')}
               </span>
             </div>
@@ -384,37 +440,45 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
           {/* Right Controls */}
           <div className="flex items-center space-x-3 sm:space-x-4">
+            {/* Quick Admin Search Trigger Button */}
+            <button
+              type="button"
+              onClick={handleOpenAdminSearch}
+              className="hidden md:inline-flex items-center space-x-2 px-3 py-1.5 text-xs text-[#65676B] bg-[#F0F2F5] hover:bg-slate-200 rounded-lg transition"
+            >
+              <Search size={13} className="text-[#1877F2]" />
+              <span>Search Admin...</span>
+            </button>
+
             {/* Live Website Link */}
             <Link
               href="/"
               target="_blank"
-              className="hidden sm:inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition btn-press shadow-2xs"
+              className="hidden sm:inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-[#F0F2F5] hover:bg-slate-200 rounded-lg transition btn-press shadow-2xs"
             >
-              <ExternalLink size={13} className="text-[#0284C7]" />
+              <ExternalLink size={13} className="text-[#1877F2]" />
               <span>Live Website Portal</span>
             </Link>
 
             {/* Fast Add Article CTA */}
             <Link
               href="/admin/articles/new"
-              className="hidden lg:inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition btn-press shadow-xs"
+              className="hidden lg:inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-white bg-[#1877F2] hover:bg-[#166FE5] rounded-lg transition btn-press shadow-xs"
             >
               <Plus size={14} />
               <span>New Story</span>
             </Link>
 
-            {/* Animated Notification Bell */}
+            {/* Notification Bell Dropdown */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="relative p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-full transition btn-press focus:outline-none"
-                title="3 Real-Time Alerts"
+                className="relative p-2 text-[#65676B] hover:text-[#1C1E21] hover:bg-[#F0F2F5] rounded-full transition btn-press focus:outline-none"
+                title="System Notifications"
               >
                 <Bell size={18} />
-                <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse-glow">
-                  3
-                </span>
+                <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full"></span>
               </button>
 
               {notificationsOpen && (
@@ -444,7 +508,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               )}
             </div>
 
-            {/* Profile Pill */}
+            {/* Profile Avatar Pill with Live Avatar Sync */}
             <div className="relative">
               <button
                 type="button"
@@ -452,16 +516,16 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 className="flex items-center space-x-2.5 pl-3 border-l border-slate-200 hover:opacity-90 transition text-left focus:outline-none btn-press"
               >
                 <img
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&h=120&q=80"
+                  src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&h=120&q=80'}
                   alt="admin"
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border border-slate-300 ring-2 ring-[#0284C7]/20"
+                  className="w-8 h-8 rounded-full object-cover border border-slate-300 ring-2 ring-[#1877F2]/20"
                 />
                 <div className="hidden sm:block">
-                  <div className="text-xs font-extrabold text-slate-900 leading-tight">
-                    {user?.name || 'admin'}
+                  <div className="text-xs font-extrabold text-[#1C1E21] leading-tight">
+                    {user?.name || 'Director'}
                   </div>
-                  <div className="text-[10px] text-[#0284C7] font-semibold leading-tight uppercase font-mono">
-                    {user?.role || 'Administrator'}
+                  <div className="text-[10px] text-[#1877F2] font-semibold leading-tight uppercase font-mono">
+                    {user?.role || 'SUPER_ADMIN'}
                   </div>
                 </div>
                 <ChevronDown size={13} className="text-slate-400 hidden sm:block" />
@@ -506,11 +570,81 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </div>
         </header>
 
-        {/* Content canvas with entrance animation - Expands comfortably without awkward margins */}
-        <div className="p-4 sm:p-6 md:p-8 max-w-[1600px] w-full mx-auto animate-fade-in-up">
+        {/* Content canvas */}
+        <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto animate-fade-in-up">
           {children}
         </div>
       </main>
+
+      {/* Admin Quick Search Modal Box (Shows only Admin Pages when searching) */}
+      {adminSearchOpen && (
+        <div
+          onClick={() => setAdminSearchOpen(false)}
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-2xs flex items-start justify-center pt-20 px-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-fade-in-down"
+          >
+            <div className="p-3 border-b border-slate-200 flex items-center space-x-3 bg-slate-50">
+              <Search size={18} className="text-[#1877F2] flex-shrink-0" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={adminSearchQuery}
+                onChange={(e) => setAdminSearchQuery(e.target.value)}
+                placeholder="Type to search admin modules (e.g. articles, categories, settings)..."
+                className="w-full bg-transparent text-sm text-[#1C1E21] placeholder-slate-400 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setAdminSearchOpen(false)}
+                className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 p-2">
+              {filteredAdminModules.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-500">
+                  No matching admin modules found for &quot;{adminSearchQuery}&quot;.
+                </div>
+              ) : (
+                filteredAdminModules.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setAdminSearchOpen(false)}
+                      className="flex items-center justify-between p-3 rounded-xl hover:bg-[#F0F2F5] transition group cursor-pointer"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 rounded-lg bg-[#EBF5FF] text-[#1877F2]">
+                          <Icon size={18} />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-[#1C1E21] group-hover:text-[#1877F2] transition">
+                            {item.label}
+                          </div>
+                          <div className="text-[11px] text-slate-500 font-mono">
+                            {item.href}
+                          </div>
+                        </div>
+                      </div>
+                      <ArrowRight size={14} className="text-slate-400 group-hover:text-[#1877F2] group-hover:translate-x-1 transition-all" />
+                    </Link>
+                  );
+                })
+              )}
+            </div>
+            <div className="p-2.5 bg-slate-50 border-t border-slate-100 text-[11px] text-slate-500 text-center font-medium">
+              Quick Admin Navigation • Showing only internal editorial tools
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

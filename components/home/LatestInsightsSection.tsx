@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/components/common/ThemeProvider';
+import { getCategoryBadgeStyle } from '@/lib/theme';
 import {
   Clock,
   Bookmark,
@@ -171,10 +172,14 @@ export default function LatestInsightsSection() {
 
                 {/* Content */}
                 <div className="p-3.5 sm:p-4 space-y-2">
-                  <div className="text-[10px] sm:text-[11px] font-semibold text-emerald-brand flex items-center space-x-1.5 truncate">
-                    <span>{article.category}</span>
-                    <span className="text-gray-300">|</span>
-                    <span className="text-gray-400 font-normal">{article.date}</span>
+                  <div className="flex items-center space-x-2">
+                    <span
+                      style={getCategoryBadgeStyle(article.category, theme?.categoryColors)}
+                      className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border"
+                    >
+                      {article.category}
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-normal">{article.date}</span>
                   </div>
 
                   <h3 className="font-serif font-bold text-sm text-editorialText-primary group-hover:text-emerald-brand transition leading-snug line-clamp-2">
@@ -255,8 +260,8 @@ export default function LatestInsightsSection() {
                   <svg viewBox="0 0 320 120" className="w-full h-full overflow-visible">
                     <defs>
                       <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#008F5A" stopOpacity="0.25" />
-                        <stop offset="100%" stopColor="#008F5A" stopOpacity="0.0" />
+                        <stop offset="0%" stopColor={theme?.primaryColor || '#008F5A'} stopOpacity="0.25" />
+                        <stop offset="100%" stopColor={theme?.primaryColor || '#008F5A'} stopOpacity="0.0" />
                       </linearGradient>
                     </defs>
 
@@ -277,11 +282,11 @@ export default function LatestInsightsSection() {
                     <path
                       d="M 35 100 Q 90 88, 140 82 T 210 65 T 265 40 T 305 28"
                       fill="none"
-                      stroke="#008F5A"
+                      stroke={theme?.primaryColor || '#008F5A'}
                       strokeWidth="2.5"
                       strokeLinecap="round"
                     />
-                    <circle cx="305" cy="28" r="4" fill="#008F5A" />
+                    <circle cx="305" cy="28" r="4" fill={theme?.primaryColor || '#008F5A'} />
                     <circle cx="305" cy="28" r="2" fill="#FFFFFF" />
                   </svg>
 

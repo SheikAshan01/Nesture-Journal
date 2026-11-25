@@ -5,8 +5,6 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import {
   Palette,
   Sliders,
-  Layout,
-  Layers,
   Sparkles,
   Save,
   CheckCircle,
@@ -15,18 +13,29 @@ import {
   Tablet,
   Smartphone,
   ExternalLink,
-  ChevronRight,
-  Eye,
-  EyeOff,
-  Maximize2,
-  Columns,
-  Grid,
+  RefreshCw,
+  Layers,
+  Bookmark,
+  GripVertical,
+  ArrowUp,
+  ArrowDown,
+  Trash2,
+  Check,
+  AlertTriangle,
   MoveVertical,
-  Type,
+  MoveHorizontal,
+  Maximize2,
+  Split,
   Square,
-  ChevronsUpDown,
+  Columns,
+  Eye,
 } from 'lucide-react';
-import { DEFAULT_THEME } from '@/lib/theme';
+import {
+  DEFAULT_THEME,
+  BUILTIN_PRESETS,
+  ThemePreset,
+  getCategoryColor,
+} from '@/lib/theme';
 import { applyThemeToDOM } from '@/components/common/ThemeProvider';
 
 interface ColorPack {
@@ -117,17 +126,56 @@ const COLOR_PACKS: ColorPack[] = [
   },
 ];
 
-type SelectedSection = 'banner' | 'sideCards' | 'insights' | 'market' | 'radius';
+const CATEGORY_NAMES: Record<string, string> = {
+  residential: 'Residential Housing',
+  commercial: 'Commercial Real Estate',
+  international: 'Global Markets & Penthouses',
+  finance: 'Finance & Mortgage Rates',
+  legal: 'Legal & RERA Regulations',
+  'realty-tech': 'RealtyTech & PropTech AI',
+  development: 'Infrastructure & Development',
+  general: 'General Editorial Intelligence',
+};
 
 export default function VisualCustomizerPage() {
   const [theme, setTheme] = useState(DEFAULT_THEME);
-  const [activeTab, setActiveTab] = useState<'packs' | 'palette' | 'layout'>('layout');
-  const [activeSubSection, setActiveSubSection] = useState<SelectedSection>('banner');
+  const [screenMode, setScreenMode] = useState<'split' | 'screen1' | 'screen2'>('split');
+  const [activeTab, setActiveTab] = useState<'packs' | 'palette' | 'categories' | 'presets'>('packs');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [iframeKey, setIframeKey] = useState(1);
+
+  // Mouse Drag-to-Resize State
   const [isDragging, setIsDragging] = useState(false);
+  const [dragFeedback, setDragFeedback] = useState<{ label: string; value: string } | null>(null);
+
+  // Presets State
+  const [presets, setPresets] = useState<ThemePreset[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('nesture_custom_presets');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return [...BUILTIN_PRESETS, ...parsed];
+        }
+      } catch {}
+    }
+    return BUILTIN_PRESETS;
+  });
+  const [newPresetName, setNewPresetName] = useState('');
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  // Drag-and-drop state for categories
+  const [draggedCatIdx, setDraggedCatIdx] = useState<number | null>(null);
 
   // Load existing theme
   useEffect(() => {
@@ -141,93 +189,83 @@ export default function VisualCustomizerPage() {
       .catch((err) => console.error(err));
   }, []);
 
-  const handleSelectPack = (pack: ColorPack) => {
-    setTheme((prev) => {
-      const next = {
-        ...prev,
-        colorPack: pack.id,
-        primaryColor: pack.primary,
-        secondaryColor: pack.secondary,
-        navyColor: pack.navy,
-        accentColor: pack.accent,
-        backgroundColor: pack.background,
-        surfaceColor: pack.surface,
-      };
-      applyThemeToDOM(next);
-      return next;
-    });
-    setHasChanges(true);
+  // Broadcast theme update to local DOM, localStorage, and BroadcastChannel
+  const broadcastTheme = (newTheme: typeof DEFAULT_THEME) => {
+    applyThemeToDOM(newTheme);
+    try {
+      localStorage.setItem('nesture_theme', JSON.stringify(newTheme));
+      const channel = new BroadcastChannel('nesture_theme_channel');
+      channel.postMessage({ type: 'THEME_UPDATE', theme: newTheme });
+      channel.close();
+    } catch {}
   };
 
-  const handleColorChange = (key: string, value: string) => {
-    setTheme((prev) => {
-      const next = {
-        ...prev,
-        [key]: value,
-        colorPack: 'custom',
-      };
-      applyThemeToDOM(next);
-      return next;
-    });
-    setHasChanges(true);
-  };
-
-  const handleCategoryColorChange = (category: string, value: string) => {
-    setTheme((prev) => ({
-      ...prev,
-      categoryColors: {
-        ...prev.categoryColors,
-        [category]: value,
-      },
-    }));
-    setHasChanges(true);
-  };
-
-  const handleLayoutChange = (key: string, value: any) => {
-    setTheme((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-    setHasChanges(true);
-  };
-
-  const handleSectionToggle = (sectionKey: string) => {
-    setTheme((prev) => ({
-      ...prev,
-      sections: {
-        ...prev.sections,
-        [sectionKey]: !prev.sections[sectionKey as keyof typeof prev.sections],
-      },
-    }));
-    setHasChanges(true);
-  };
-
-  // Interactive Mouse Drag-to-Resize handler
+  // Interactive Mouse Drag-to-Resize on canvas elements
   const startMouseDragResize = (
-    property: 'heroHeight' | 'sideCardHeight' | 'marketWidgetHeight' | 'insightsCardImageHeight',
-    min: number,
-    max: number,
-    e: React.MouseEvent
+    e: React.MouseEvent,
+    target: 'heroHeight' | 'heroWidth' | 'sideCardHeight' | 'thumbnailWidth',
+    initialNum: number,
+    minVal: number,
+    maxVal: number
   ) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
 
+    const startX = e.clientX;
     const startY = e.clientY;
-    const initialVal = parseInt(theme[property] || '460', 10);
 
     const onMouseMove = (moveEvent: MouseEvent) => {
-      const deltaY = moveEvent.clientY - startY;
-      const newVal = Math.max(min, Math.min(max, initialVal + deltaY));
-      setTheme((prev) => ({
-        ...prev,
-        [property]: `${newVal}px`,
-      }));
-      setHasChanges(true);
+      if (target === 'heroHeight') {
+        const deltaY = moveEvent.clientY - startY;
+        const newHeight = Math.max(minVal, Math.min(maxVal, initialNum + deltaY));
+        setDragFeedback({ label: 'Hero Banner Height', value: `${newHeight}px` });
+        setTheme((prev) => {
+          const next = { ...prev, heroHeight: `${newHeight}px` };
+          broadcastTheme(next);
+          return next;
+        });
+        setHasChanges(true);
+      } else if (target === 'heroWidth') {
+        const deltaX = moveEvent.clientX - startX;
+        const isFull = deltaX > 50;
+        const widthMode = isFull ? 'full' : 'split';
+        setDragFeedback({
+          label: 'Banner Layout Width',
+          value: isFull ? '12-Col Full Width (Reflowed Below)' : '8-Col Split Hero Banner',
+        });
+        setTheme((prev) => {
+          const next = { ...prev, heroWidth: widthMode as 'split' | 'full' };
+          broadcastTheme(next);
+          return next;
+        });
+        setHasChanges(true);
+      } else if (target === 'sideCardHeight') {
+        const deltaY = moveEvent.clientY - startY;
+        const newHeight = Math.max(minVal, Math.min(maxVal, initialNum + deltaY));
+        setDragFeedback({ label: 'Side Card Height', value: `${newHeight}px` });
+        setTheme((prev) => {
+          const next = { ...prev, sideCardHeight: `${newHeight}px` };
+          broadcastTheme(next);
+          return next;
+        });
+        setHasChanges(true);
+      } else if (target === 'thumbnailWidth') {
+        const deltaX = moveEvent.clientX - startX;
+        const newWidth = Math.max(minVal, Math.min(maxVal, initialNum + deltaX));
+        setDragFeedback({ label: 'Thumbnail Photo Width', value: `${newWidth}px` });
+        setTheme((prev) => {
+          const next = { ...prev, sideCardThumbnailWidth: `${newWidth}px` };
+          broadcastTheme(next);
+          return next;
+        });
+        setHasChanges(true);
+      }
     };
 
     const onMouseUp = () => {
       setIsDragging(false);
+      setTimeout(() => setDragFeedback(null), 1200);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
@@ -236,31 +274,146 @@ export default function VisualCustomizerPage() {
     window.addEventListener('mouseup', onMouseUp);
   };
 
-  const handleResetDefaults = () => {
-    if (confirm('Reset all theme and sizing settings to factory default?')) {
-      setTheme(DEFAULT_THEME);
-      setHasChanges(true);
+  // Color Pack Selector
+  const handlePackSelect = (pack: ColorPack) => {
+    const nextTheme = {
+      ...theme,
+      colorPack: pack.id,
+      primaryColor: pack.primary,
+      secondaryColor: pack.secondary,
+      navyColor: pack.navy,
+      accentColor: pack.accent,
+      backgroundColor: pack.background,
+      surfaceColor: pack.surface,
+    };
+    setTheme(nextTheme);
+    broadcastTheme(nextTheme);
+    setHasChanges(true);
+  };
+
+  // Color Change Handler
+  const handleColorChange = (key: string, value: string) => {
+    const nextTheme = { ...theme, [key]: value, colorPack: 'custom' };
+    setTheme(nextTheme);
+    broadcastTheme(nextTheme);
+    setHasChanges(true);
+  };
+
+  // Category Color Change
+  const handleCategoryColorChange = (catSlug: string, color: string) => {
+    const nextTheme = {
+      ...theme,
+      categoryColors: {
+        ...theme.categoryColors,
+        [catSlug]: color,
+      },
+    };
+    setTheme(nextTheme);
+    broadcastTheme(nextTheme);
+    setHasChanges(true);
+  };
+
+  // Category Reorder Handler (Move Up/Down)
+  const handleMoveCategory = (index: number, direction: 'up' | 'down') => {
+    const currentOrder = [...(theme.categoryOrder || DEFAULT_THEME.categoryOrder)];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= currentOrder.length) return;
+
+    const temp = currentOrder[index];
+    currentOrder[index] = currentOrder[targetIndex];
+    currentOrder[targetIndex] = temp;
+
+    const nextTheme = {
+      ...theme,
+      categoryOrder: currentOrder,
+    };
+    setTheme(nextTheme);
+    broadcastTheme(nextTheme);
+    setHasChanges(true);
+  };
+
+  // Save Current as New Preset
+  const handleSavePreset = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPresetName.trim()) return;
+
+    const newPreset: ThemePreset = {
+      id: `custom-${Date.now()}`,
+      name: newPresetName.trim(),
+      tagline: 'Custom user-saved layout & color configuration.',
+      badge: 'CUSTOM',
+      primaryColor: theme.primaryColor,
+      navyColor: theme.navyColor,
+      theme: { ...theme },
+    };
+
+    const updatedPresets = [...presets, newPreset];
+    setPresets(updatedPresets);
+
+    if (typeof window !== 'undefined') {
+      const customOnly = updatedPresets.filter((p) => p.id.startsWith('custom-'));
+      localStorage.setItem('nesture_custom_presets', JSON.stringify(customOnly));
+    }
+
+    setNewPresetName('');
+    alert(`Preset "${newPreset.name}" successfully saved to your template library!`);
+  };
+
+  // Delete Custom Preset
+  const handleDeletePreset = (id: string, name: string) => {
+    if (confirm(`Are you sure you want to delete preset "${name}"?`)) {
+      const updated = presets.filter((p) => p.id !== id);
+      setPresets(updated);
+      if (typeof window !== 'undefined') {
+        const customOnly = updated.filter((p) => p.id.startsWith('custom-'));
+        localStorage.setItem('nesture_custom_presets', JSON.stringify(customOnly));
+      }
     }
   };
 
+  // Apply Preset with Confirmation Modal
+  const handleApplyPresetClick = (preset: ThemePreset) => {
+    setConfirmModal({
+      open: true,
+      title: `Apply "${preset.name}" Design Template?`,
+      message: `Are you sure you want to apply the "${preset.name}" design template? All colors, banner sizing, and category order will update immediately.`,
+      onConfirm: () => {
+        const nextTheme = {
+          ...theme,
+          ...preset.theme,
+        };
+        setTheme(nextTheme);
+        broadcastTheme(nextTheme);
+        setHasChanges(true);
+        setConfirmModal(null);
+      },
+    });
+  };
+
+  // Reset Confirmation
+  const handleResetDefaultsClick = () => {
+    setConfirmModal({
+      open: true,
+      title: 'Reset to Factory Default Template?',
+      message:
+        'Are you sure you want to restore the factory default Emerald Journal editorial theme? All unsaved customizations will be reset.',
+      onConfirm: () => {
+        setTheme(DEFAULT_THEME);
+        broadcastTheme(DEFAULT_THEME);
+        setHasChanges(true);
+        setConfirmModal(null);
+      },
+    });
+  };
+
+  // Publish changes to database and live website
   const handlePublish = async () => {
     setSaving(true);
     setSaveSuccess(false);
 
     try {
-      // 1. Immediately apply to local DOM and broadcast to all browser tabs
-      applyThemeToDOM(theme);
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('nesture_theme', JSON.stringify(theme));
-          window.dispatchEvent(new CustomEvent('nesture_theme_change', { detail: theme }));
-          const bc = new BroadcastChannel('nesture_theme_channel');
-          bc.postMessage(theme);
-          bc.close();
-        } catch {}
-      }
+      broadcastTheme(theme);
 
-      // 2. Persist to PostgreSQL database
       const res = await fetch('/api/theme', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -270,6 +423,7 @@ export default function VisualCustomizerPage() {
       if (res.ok) {
         setSaveSuccess(true);
         setHasChanges(false);
+        setIframeKey((prev) => prev + 1);
         setTimeout(() => setSaveSuccess(false), 4000);
       } else {
         alert('Failed to publish changes to live site.');
@@ -281,38 +435,92 @@ export default function VisualCustomizerPage() {
     }
   };
 
-  const heroHeightNum = parseInt(theme.heroHeight || '460', 10);
-  const sideCardHeightNum = parseInt(theme.sideCardHeight || '85', 10);
-  const sideCardThumbNum = parseInt(theme.sideCardThumbnailWidth || '96', 10);
-  const insightsImgHeightNum = parseInt(theme.insightsCardImageHeight || '180', 10);
-  const marketHeightNum = parseInt(theme.marketWidgetHeight || '404', 10);
-  const borderRadiusNum = parseInt(theme.borderRadius || '14', 10);
+  const currentOrder = theme.categoryOrder || DEFAULT_THEME.categoryOrder;
+  const isFullWidth = theme.heroWidth === 'full';
+  const heroBannerHeight = parseInt(theme.heroHeight || '460px', 10);
 
   return (
     <AdminLayout>
       <div className={`flex flex-col h-full space-y-4 ${isDragging ? 'select-none' : ''}`}>
-        {/* Top Action Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 rounded-2xl border border-editorialBorder shadow-xs">
-          <div>
-            <div className="flex items-center space-x-2 text-xs font-mono font-bold text-emerald-brand uppercase tracking-wider">
-              <Sparkles size={14} />
-              <span>Interactive Visual Customizer Studio</span>
+        {/* TOP ACTION BAR WITH SCREEN MODE SWITCHER */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-white p-4 rounded-2xl border border-editorialBorder shadow-xs">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-brand font-bold text-lg">
+              <Sparkles size={20} />
             </div>
-            <h1 className="font-serif font-bold text-xl sm:text-2xl text-editorialText-primary tracking-tight mt-0.5">
-              Live Theme & Mouse-Drag Sizing Engine
-            </h1>
-            <p className="text-xs text-editorialText-secondary">
-              Drag mouse on canvas or use sliders to resize each content element individually in real time.
-            </p>
+            <div>
+              <div className="flex items-center space-x-2 text-xs font-mono font-bold text-emerald-brand uppercase tracking-wider">
+                <span>Interactive Visual Customizer Studio</span>
+                <span className="text-slate-400">|</span>
+                <span className="text-slate-600 font-semibold">2-Screen Mode & Drag Sizing</span>
+              </div>
+              <h1 className="font-serif font-bold text-xl sm:text-2xl text-editorialText-primary tracking-tight mt-0.5">
+                Live Theme & Interactive Mouse-Drag Sizing Engine
+              </h1>
+            </div>
           </div>
 
-          <div className="flex items-center space-x-2.5 flex-shrink-0">
+          {/* SCREEN SWITCHER BUTTONS (Screen 1 vs Screen 2 vs Dual Split) */}
+          <div className="flex items-center space-x-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
             <button
               type="button"
-              onClick={handleResetDefaults}
-              className="inline-flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition btn-press"
+              onClick={() => setScreenMode('screen1')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
+                screenMode === 'screen1'
+                  ? 'bg-emerald-brand text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Screen 1: Full-width live canvas with mouse drag handles"
             >
-              <RotateCcw size={14} />
+              <Monitor size={14} />
+              <span>Screen 1: Big Live Canvas (Mouse Drag)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setScreenMode('screen2')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
+                screenMode === 'screen2'
+                  ? 'bg-emerald-brand text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Screen 2: Dedicated Color Packs, Palette & Preset Controls"
+            >
+              <Palette size={14} />
+              <span>Screen 2: Studio Design Controls</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setScreenMode('split')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
+                screenMode === 'split'
+                  ? 'bg-emerald-brand text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Dual Screen Split View: Canvas + Controls Side-by-Side"
+            >
+              <Columns size={14} />
+              <span>Dual Split View</span>
+            </button>
+          </div>
+
+          {/* RESET & PUBLISH ACTIONS */}
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            {hasChanges && (
+              <span className="hidden sm:inline-flex items-center space-x-1.5 px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-medium animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                <span>Unpublished Changes</span>
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={handleResetDefaultsClick}
+              className="inline-flex items-center space-x-1.5 px-3.5 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+              title="Reset all settings to default"
+            >
+              <RotateCcw size={13} />
               <span>Reset</span>
             </button>
 
@@ -328,406 +536,465 @@ export default function VisualCustomizerPage() {
           </div>
         </div>
 
+        {/* ACTIVE MOUSE DRAG FEEDBACK FLOATING NOTIFICATION */}
+        {dragFeedback && (
+          <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white border-2 border-emerald-400 px-5 py-2.5 rounded-2xl shadow-2xl flex items-center space-x-3 animate-fade-in">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+            <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider">
+              Mouse Drag Active:
+            </span>
+            <span className="text-xs font-bold text-white">
+              {dragFeedback.label} &rarr; <span className="text-emerald-300 font-mono">{dragFeedback.value}</span>
+            </span>
+          </div>
+        )}
+
+        {/* Success Alert */}
         {saveSuccess && (
           <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-deep text-xs font-bold rounded-xl flex items-center justify-between animate-fade-in">
             <div className="flex items-center space-x-2">
               <CheckCircle size={16} />
               <span>All visual and layout adjustments published live! Live site is updated.</span>
             </div>
-            <a href="/" target="_blank" className="underline flex items-center space-x-1">
-              <span>View Live Website</span>
-              <ExternalLink size={12} />
+            <a
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline text-emerald-700 hover:text-emerald-900 font-mono text-[11px]"
+            >
+              View Live Site &rarr;
             </a>
           </div>
         )}
 
-        {/* Main Studio: 2 Columns (Controls on Left, Live Preview on Right) */}
+        {/* MAIN STUDIO CONTAINER */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 flex-1 min-h-0">
-          {/* LEFT: Figma-Style Controls Sidebar (5 Cols on XL) */}
-          <div className="xl:col-span-5 flex flex-col space-y-4">
-            {/* Control Tabs */}
-            <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
-              <button
-                type="button"
-                onClick={() => setActiveTab('layout')}
-                className={`flex-1 flex items-center justify-center space-x-1.5 py-2 text-xs font-bold rounded-lg transition btn-press ${
-                  activeTab === 'layout'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Layout size={14} />
-                <span>Mouse Drag & Sizing</span>
-              </button>
+          {/* ========================================================================= */}
+          {/* SCREEN 1: LIVE WEBSITE MIRROR & INTERACTIVE MOUSE DRAG SIZING CANVAS     */}
+          {/* ========================================================================= */}
+          <div
+            className={`${
+              screenMode === 'screen1'
+                ? 'xl:col-span-12'
+                : screenMode === 'screen2'
+                ? 'hidden'
+                : 'xl:col-span-8'
+            } flex flex-col bg-slate-900 rounded-2xl p-4 shadow-xl border border-slate-800 min-h-[720px] flex-1 transition-all duration-300`}
+          >
+            {/* Top Chrome Window Header */}
+            <div className="flex flex-wrap items-center justify-between pb-3 mb-3 border-b border-slate-800 text-slate-300 gap-2">
+              <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1.5 px-3 py-1 bg-slate-800/80 rounded-lg border border-slate-700/80 text-xs font-mono text-slate-300">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>http://localhost:3000/</span>
+                  <span className="text-slate-500">|</span>
+                  <span className="text-[10px] text-emerald-400 font-bold uppercase">
+                    Screen 1: Live Interactive Canvas
+                  </span>
+                </div>
+              </div>
 
+              {/* Viewport switchers & Device Toggles */}
+              <div className="flex items-center space-x-2">
+                {/* Reload Preview */}
+                <button
+                  type="button"
+                  onClick={() => setIframeKey((k) => k + 1)}
+                  className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition"
+                  title="Reload Live Preview"
+                >
+                  <RefreshCw size={14} />
+                </button>
+
+                {/* Device Viewport Switcher */}
+                <div className="flex items-center space-x-1 bg-slate-800 p-1 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice('desktop')}
+                    className={`p-1.5 rounded transition ${
+                      previewDevice === 'desktop'
+                        ? 'bg-emerald-brand text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Desktop View (100%)"
+                  >
+                    <Monitor size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice('tablet')}
+                    className={`p-1.5 rounded transition ${
+                      previewDevice === 'tablet'
+                        ? 'bg-emerald-brand text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Tablet View (768px)"
+                  >
+                    <Tablet size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice('mobile')}
+                    className={`p-1.5 rounded transition ${
+                      previewDevice === 'mobile'
+                        ? 'bg-emerald-brand text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Mobile View (375px)"
+                  >
+                    <Smartphone size={14} />
+                  </button>
+                </div>
+
+                <a
+                  href="/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition"
+                  title="Open Live Website in New Tab"
+                >
+                  <ExternalLink size={14} />
+                </a>
+
+                {screenMode !== 'screen1' && (
+                  <button
+                    type="button"
+                    onClick={() => setScreenMode('screen1')}
+                    className="p-1.5 bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white rounded-lg transition"
+                    title="Maximize to 100% Big Screen"
+                  >
+                    <Maximize2 size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* SCREEN 1 FLOATING INTERACTIVE QUICK CONTROLS TOOLBAR */}
+            <div className="mb-3 p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Split vs Full Width Banner Layout Toggle */}
+                <div className="flex items-center space-x-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+                  <span className="text-[10px] font-mono text-slate-400 px-1 uppercase">Layout:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = { ...theme, heroWidth: 'split' as const };
+                      setTheme(next);
+                      broadcastTheme(next);
+                      setHasChanges(true);
+                    }}
+                    className={`px-2.5 py-1 rounded text-xs font-bold transition flex items-center space-x-1 ${
+                      !isFullWidth ? 'bg-emerald-brand text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Split size={12} />
+                    <span>Split (8-Col)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = { ...theme, heroWidth: 'full' as const };
+                      setTheme(next);
+                      broadcastTheme(next);
+                      setHasChanges(true);
+                    }}
+                    className={`px-2.5 py-1 rounded text-xs font-bold transition flex items-center space-x-1 ${
+                      isFullWidth ? 'bg-emerald-brand text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Maximize2 size={12} />
+                    <span>Full Width (12-Col)</span>
+                  </button>
+                </div>
+
+                {/* Banner Height Quick Presets */}
+                <div className="flex items-center space-x-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+                  <span className="text-[10px] font-mono text-slate-400 px-1 uppercase">Banner Height:</span>
+                  {['380px', '460px', '540px'].map((h) => (
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => {
+                        const next = { ...theme, heroHeight: h };
+                        setTheme(next);
+                        broadcastTheme(next);
+                        setHasChanges(true);
+                      }}
+                      className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition ${
+                        theme.heroHeight === h ? 'bg-emerald-brand text-white' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {h}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Corner Rounding Quick Presets */}
+                <div className="flex items-center space-x-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+                  <span className="text-[10px] font-mono text-slate-400 px-1 uppercase">Radius:</span>
+                  {[
+                    { label: 'Sharp', val: '0px' },
+                    { label: 'Subtle', val: '8px' },
+                    { label: 'Modern', val: '14px' },
+                    { label: 'Pill', val: '22px' },
+                  ].map((r) => (
+                    <button
+                      key={r.label}
+                      type="button"
+                      onClick={() => {
+                        const next = { ...theme, borderRadius: r.val };
+                        setTheme(next);
+                        broadcastTheme(next);
+                        setHasChanges(true);
+                      }}
+                      className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
+                        theme.borderRadius === r.val ? 'bg-emerald-brand text-white' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Jump to Screen 2 Shortcut Button */}
+              {screenMode !== 'screen2' && (
+                <button
+                  type="button"
+                  onClick={() => setScreenMode('screen2')}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 font-bold rounded-lg border border-slate-700 flex items-center space-x-1.5 text-xs transition"
+                >
+                  <Palette size={13} />
+                  <span>Open Screen 2 Controls &rarr;</span>
+                </button>
+              )}
+            </div>
+
+            {/* LIVE CANVAS & INTERACTIVE MOUSE DRAG CONTAINER */}
+            <div className="flex-1 flex flex-col items-center justify-start overflow-hidden bg-slate-950/60 rounded-xl p-2 sm:p-3 border border-slate-800/80 relative">
+              <div
+                style={{
+                  maxWidth:
+                    previewDevice === 'desktop'
+                      ? '100%'
+                      : previewDevice === 'tablet'
+                      ? '768px'
+                      : '375px',
+                  width: '100%',
+                  height: '100%',
+                  minHeight: '750px',
+                  transition: 'max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+                className="rounded-xl overflow-hidden shadow-2xl bg-white border border-slate-700/50 flex flex-col relative"
+              >
+                {/* DIRECT ON-CANVAS INTERACTIVE MOUSE DRAG OVERLAY LAYER */}
+                {/* 1. HERO BANNER BOTTOM DRAG HANDLE (Height Adjustment with Mouse) */}
+                <div
+                  onMouseDown={(e) => startMouseDragResize(e, 'heroHeight', heroBannerHeight, 280, 650)}
+                  className="absolute left-6 right-6 z-30 flex items-center justify-center cursor-ns-resize group"
+                  style={{ top: `${Math.min(heroBannerHeight + 110, 650)}px` }}
+                  title="Click & Drag vertically with mouse to resize Hero Banner Height"
+                >
+                  <div className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-full text-xs font-mono font-bold shadow-xl flex items-center space-x-2 border-2 border-amber-300 group-hover:scale-105 transition-all">
+                    <MoveVertical size={13} className="animate-bounce" />
+                    <span>↕ Drag with mouse to resize banner height ({theme.heroHeight || '460px'})</span>
+                  </div>
+                </div>
+
+                {/* 2. HERO BANNER SIDE DRAG HANDLE (Width Split Adjustment with Mouse) */}
+                <div
+                  onMouseDown={(e) => startMouseDragResize(e, 'heroWidth', 0, 0, 0)}
+                  className="absolute z-30 cursor-ew-resize group"
+                  style={{
+                    top: '220px',
+                    left: isFullWidth ? '92%' : '63%',
+                    transition: 'left 0.3s ease',
+                  }}
+                  title="Click & Drag horizontally with mouse to expand banner to 12-col full width or restore 8-col split"
+                >
+                  <div className="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold shadow-2xl flex items-center space-x-1.5 border-2 border-cyan-300 group-hover:scale-110 transition-all">
+                    <MoveHorizontal size={14} />
+                    <span className="hidden sm:inline">↔ Side Drag ({isFullWidth ? '12-Col Full' : '8-Col Split'})</span>
+                  </div>
+                </div>
+
+                {/* EMBEDDED REAL LIVE WEBSITE MIRROR (IFRAME) */}
+                <iframe
+                  key={iframeKey}
+                  src="/"
+                  title="Live Website Mirror Preview"
+                  className={`w-full flex-1 min-h-[750px] border-0 ${isDragging ? 'pointer-events-none' : ''}`}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ========================================================================= */}
+          {/* SCREEN 2: DEDICATED FULL-WIDTH DESIGN & PRESET STUDIO CONTROLS            */}
+          {/* ========================================================================= */}
+          <div
+            className={`${
+              screenMode === 'screen2'
+                ? 'xl:col-span-12'
+                : screenMode === 'screen1'
+                ? 'hidden'
+                : 'xl:col-span-4'
+            } flex flex-col space-y-4 transition-all duration-300`}
+          >
+            {/* Header when Screen 2 is full-width */}
+            {screenMode === 'screen2' && (
+              <div className="flex items-center justify-between p-4 bg-white rounded-2xl border border-editorialBorder shadow-xs">
+                <div>
+                  <div className="text-xs font-mono font-bold text-emerald-brand uppercase">
+                    Screen 2: Dedicated Control Studio
+                  </div>
+                  <h2 className="font-serif font-bold text-xl text-editorialText-primary">
+                    Color Packs, Custom Palette, Categories & Preset Engine
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setScreenMode('screen1')}
+                  className="px-4 py-2 bg-emerald-brand text-white text-xs font-bold rounded-xl shadow-xs hover:bg-emerald-deep flex items-center space-x-1.5 transition"
+                >
+                  <Monitor size={14} />
+                  <span>Switch to Screen 1: Live Canvas & Mouse Drag &rarr;</span>
+                </button>
+              </div>
+            )}
+
+            {/* DOCK NAVIGATION TABS */}
+            <div className="grid grid-cols-4 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold">
               <button
                 type="button"
                 onClick={() => setActiveTab('packs')}
-                className={`flex-1 flex items-center justify-center space-x-1.5 py-2 text-xs font-bold rounded-lg transition btn-press ${
+                className={`py-2 px-1 rounded-lg transition flex flex-col sm:flex-row items-center justify-center space-x-1 ${
                   activeTab === 'packs'
-                    ? 'bg-white text-slate-900 shadow-xs'
+                    ? 'bg-white text-emerald-brand shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <Palette size={14} />
                 <span>Color Packs</span>
               </button>
-
               <button
                 type="button"
                 onClick={() => setActiveTab('palette')}
-                className={`flex-1 flex items-center justify-center space-x-1.5 py-2 text-xs font-bold rounded-lg transition btn-press ${
+                className={`py-2 px-1 rounded-lg transition flex flex-col sm:flex-row items-center justify-center space-x-1 ${
                   activeTab === 'palette'
-                    ? 'bg-white text-slate-900 shadow-xs'
+                    ? 'bg-white text-emerald-brand shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <Sliders size={14} />
-                <span>Custom Palette</span>
+                <span>Palette</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('categories')}
+                className={`py-2 px-1 rounded-lg transition flex flex-col sm:flex-row items-center justify-center space-x-1 ${
+                  activeTab === 'categories'
+                    ? 'bg-white text-emerald-brand shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Layers size={14} />
+                <span>Categories</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('presets')}
+                className={`py-2 px-1 rounded-lg transition flex flex-col sm:flex-row items-center justify-center space-x-1 ${
+                  activeTab === 'presets'
+                    ? 'bg-white text-emerald-brand shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Bookmark size={14} />
+                <span>Presets</span>
               </button>
             </div>
 
-            {/* TAB 1: INDIVIDUAL CONTENT SIZING WITH MOUSE DRAG & SLIDERS */}
-            {activeTab === 'layout' && (
-              <div className="bg-white rounded-2xl border border-editorialBorder p-5 shadow-xs space-y-5 max-h-[640px] overflow-y-auto">
-                {/* Content Selector Tabs */}
-                <div>
-                  <div className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                    Individual Element Controls
-                  </div>
-                  <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl">
-                    <button
-                      type="button"
-                      onClick={() => setActiveSubSection('banner')}
-                      className={`py-1.5 text-[11px] font-bold rounded-lg transition ${
-                        activeSubSection === 'banner' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
-                      }`}
-                    >
-                      Hero Banner
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveSubSection('sideCards')}
-                      className={`py-1.5 text-[11px] font-bold rounded-lg transition ${
-                        activeSubSection === 'sideCards' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
-                      }`}
-                    >
-                      Side Stories
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveSubSection('insights')}
-                      className={`py-1.5 text-[11px] font-bold rounded-lg transition ${
-                        activeSubSection === 'insights' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
-                      }`}
-                    >
-                      Article Cards
-                    </button>
-                  </div>
-                </div>
-
-                {/* SECTION 1: HERO BIG BANNER */}
-                {activeSubSection === 'banner' && (
-                  <div className="space-y-4 animate-fade-in">
-                    {/* Width Mode */}
-                    <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
-                      <label className="text-xs font-bold text-slate-800 block">
-                        Hero Banner Width Mode
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleLayoutChange('heroWidth', 'split')}
-                          className={`p-2.5 rounded-xl border-2 text-left transition ${
-                            theme.heroWidth === 'split'
-                              ? 'border-emerald-brand bg-white shadow-xs'
-                              : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-1.5 text-xs font-bold text-slate-900">
-                            <Columns size={14} className="text-emerald-brand" />
-                            <span>8-Col Split</span>
-                          </div>
-                          <div className="text-[10px] text-slate-500 mt-1">With 3 side stories on right</div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleLayoutChange('heroWidth', 'full')}
-                          className={`p-2.5 rounded-xl border-2 text-left transition ${
-                            theme.heroWidth === 'full'
-                              ? 'border-emerald-brand bg-white shadow-xs'
-                              : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-1.5 text-xs font-bold text-slate-900">
-                            <Maximize2 size={14} className="text-emerald-brand" />
-                            <span>12-Col Full Width</span>
-                          </div>
-                          <div className="text-[10px] text-slate-500 mt-1">Side stories reflow below!</div>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Mouse Drag Height Slider */}
-                    <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
-                          <MoveVertical size={14} className="text-emerald-brand" />
-                          <span>Hero Banner Height (Drag with Mouse)</span>
-                        </label>
-                        <span className="text-xs font-mono font-bold text-emerald-brand px-2 py-0.5 bg-emerald-50 rounded border border-emerald-200">
-                          {theme.heroHeight}
-                        </span>
-                      </div>
-
-                      <input
-                        type="range"
-                        min="280"
-                        max="650"
-                        step="10"
-                        value={heroHeightNum}
-                        onChange={(e) => handleLayoutChange('heroHeight', `${e.target.value}px`)}
-                        className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-ew-resize accent-emerald-brand"
-                      />
-
-                      <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                        <span>Compact (280px)</span>
-                        <span>Standard (460px)</span>
-                        <span>Large (650px)</span>
-                      </div>
-                    </div>
-
-                    {/* Corner Rounding Slider */}
-                    <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
-                          <Square size={14} className="text-emerald-brand" />
-                          <span>Banner & Card Corner Rounding</span>
-                        </label>
-                        <span className="text-xs font-mono font-bold text-emerald-brand px-2 py-0.5 bg-emerald-50 rounded border border-emerald-200">
-                          {theme.borderRadius}
-                        </span>
-                      </div>
-
-                      <input
-                        type="range"
-                        min="0"
-                        max="32"
-                        step="2"
-                        value={borderRadiusNum}
-                        onChange={(e) => handleLayoutChange('borderRadius', `${e.target.value}px`)}
-                        className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-ew-resize accent-emerald-brand"
-                      />
-
-                      <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                        <span>Sharp (0px)</span>
-                        <span>Modern (14px)</span>
-                        <span>Pill (32px)</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* SECTION 2: SIDE HIGHLIGHT STORIES */}
-                {activeSubSection === 'sideCards' && (
-                  <div className="space-y-4 animate-fade-in">
-                    {/* Individual Side Card Height */}
-                    <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-slate-800">
-                          Side Card Height (Drag with Mouse)
-                        </label>
-                        <span className="text-xs font-mono font-bold text-emerald-brand px-2 py-0.5 bg-emerald-50 rounded border border-emerald-200">
-                          {theme.sideCardHeight || '85px'}
-                        </span>
-                      </div>
-
-                      <input
-                        type="range"
-                        min="60"
-                        max="130"
-                        step="5"
-                        value={sideCardHeightNum}
-                        onChange={(e) => handleLayoutChange('sideCardHeight', `${e.target.value}px`)}
-                        className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-ew-resize accent-emerald-brand"
-                      />
-
-                      <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                        <span>Compact (60px)</span>
-                        <span>Normal (85px)</span>
-                        <span>Spacious (130px)</span>
-                      </div>
-                    </div>
-
-                    {/* Thumbnail Width */}
-                    <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-slate-800">
-                          Thumbnail Photo Width (Drag with Mouse)
-                        </label>
-                        <span className="text-xs font-mono font-bold text-emerald-brand px-2 py-0.5 bg-emerald-50 rounded border border-emerald-200">
-                          {theme.sideCardThumbnailWidth || '96px'}
-                        </span>
-                      </div>
-
-                      <input
-                        type="range"
-                        min="60"
-                        max="140"
-                        step="4"
-                        value={sideCardThumbNum}
-                        onChange={(e) => handleLayoutChange('sideCardThumbnailWidth', `${e.target.value}px`)}
-                        className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-ew-resize accent-emerald-brand"
-                      />
-
-                      <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                        <span>Small (60px)</span>
-                        <span>Standard (96px)</span>
-                        <span>Large (140px)</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* SECTION 3: ARTICLE CARDS & MARKET INTELLIGENCE */}
-                {activeSubSection === 'insights' && (
-                  <div className="space-y-4 animate-fade-in">
-                    {/* Article Image Height */}
-                    <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-slate-800">
-                          Article Card Image Height (Drag with Mouse)
-                        </label>
-                        <span className="text-xs font-mono font-bold text-emerald-brand px-2 py-0.5 bg-emerald-50 rounded border border-emerald-200">
-                          {theme.insightsCardImageHeight || '180px'}
-                        </span>
-                      </div>
-
-                      <input
-                        type="range"
-                        min="120"
-                        max="260"
-                        step="10"
-                        value={insightsImgHeightNum}
-                        onChange={(e) => handleLayoutChange('insightsCardImageHeight', `${e.target.value}px`)}
-                        className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-ew-resize accent-emerald-brand"
-                      />
-
-                      <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                        <span>Compact (120px)</span>
-                        <span>Standard (180px)</span>
-                        <span>Tall (260px)</span>
-                      </div>
-                    </div>
-
-                    {/* Market Intelligence Widget Height */}
-                    <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-slate-800">
-                          Market Intelligence Height (Drag with Mouse)
-                        </label>
-                        <span className="text-xs font-mono font-bold text-emerald-brand px-2 py-0.5 bg-emerald-50 rounded border border-emerald-200">
-                          {theme.marketWidgetHeight || '404px'}
-                        </span>
-                      </div>
-
-                      <input
-                        type="range"
-                        min="300"
-                        max="540"
-                        step="10"
-                        value={marketHeightNum}
-                        onChange={(e) => handleLayoutChange('marketWidgetHeight', `${e.target.value}px`)}
-                        className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-ew-resize accent-emerald-brand"
-                      />
-
-                      <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                        <span>Compact (300px)</span>
-                        <span>Current (404px)</span>
-                        <span>Expanded (540px)</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Section Visibility Toggles */}
-                <div className="pt-2 border-t border-slate-200">
-                  <div className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                    Section Visibility Toggles
-                  </div>
-                  <div className="space-y-1.5">
-                    {[
-                      { key: 'ticker', label: 'Realty Stocks Marquee Ticker' },
-                      { key: 'hero', label: 'Hero Big Banner & Highlights' },
-                      { key: 'latestInsights', label: 'Latest Insights Grid' },
-                      { key: 'marketIntelligence', label: 'Market Intelligence & Index Chart' },
-                      { key: 'sectorSpotlight', label: 'Sector Spotlight Multi-Tab Hub' },
-                    ].map((sec) => {
-                      const isVisible = theme.sections?.[sec.key as keyof typeof theme.sections] ?? true;
-                      return (
-                        <div
-                          key={sec.key}
-                          onClick={() => handleSectionToggle(sec.key)}
-                          className="p-2 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between cursor-pointer hover:bg-slate-100 transition"
-                        >
-                          <span className="text-xs font-medium text-slate-800">{sec.label}</span>
-                          <span className={`text-xs font-bold flex items-center space-x-1 ${isVisible ? 'text-emerald-brand' : 'text-slate-400'}`}>
-                            {isVisible ? <Eye size={13} /> : <EyeOff size={13} />}
-                            <span>{isVisible ? 'Visible' : 'Hidden'}</span>
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB 2: PRESET COLOR PACKS */}
+            {/* TAB 1: CURATED COLOR PACKS */}
             {activeTab === 'packs' && (
-              <div className="bg-white rounded-2xl border border-editorialBorder p-5 shadow-xs space-y-3.5 max-h-[640px] overflow-y-auto">
-                <div className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  One-Click Editorial Theme Packs
+              <div className="bg-white p-5 rounded-2xl border border-editorialBorder shadow-xs space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <h3 className="font-serif font-bold text-base text-editorialText-primary">
+                    Curated Editorial Color Packs
+                  </h3>
+                  <span className="text-[10px] font-mono font-bold text-emerald-brand uppercase tracking-wider">
+                    1-Click Apply
+                  </span>
                 </div>
+                <p className="text-xs text-slate-500">
+                  Select a color pack to instantly re-theme all headers, cards, buttons, charts, and badges across your
+                  live site.
+                </p>
 
-                <div className="space-y-3">
+                <div
+                  className={`grid ${
+                    screenMode === 'screen2' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'
+                  } gap-3`}
+                >
                   {COLOR_PACKS.map((pack) => {
                     const isSelected = theme.colorPack === pack.id;
                     return (
                       <div
                         key={pack.id}
-                        onClick={() => handleSelectPack(pack)}
-                        className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all btn-press ${
+                        onClick={() => handlePackSelect(pack)}
+                        className={`p-4 rounded-xl border-2 transition cursor-pointer relative group ${
                           isSelected
-                            ? 'border-emerald-brand bg-emerald-50/40 shadow-xs ring-2 ring-emerald-500/10'
-                            : 'border-slate-200 hover:border-slate-300 bg-white'
+                            ? 'border-emerald-500 bg-emerald-50/30 shadow-md ring-2 ring-emerald-400/20'
+                            : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/50'
                         }`}
                       >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-serif font-bold text-sm text-slate-900">
-                              {pack.name}
-                            </span>
-                            {isSelected && (
-                              <span className="px-2 py-0.5 bg-emerald-brand text-white text-[10px] font-mono font-bold rounded-full">
-                                ACTIVE
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <span className="font-serif font-bold text-sm text-slate-900">{pack.name}</span>
+                              <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded">
+                                {pack.tag}
                               </span>
-                            )}
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1">{pack.description}</p>
                           </div>
-                          <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                            {pack.tag}
-                          </span>
+                          {isSelected && (
+                            <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs shadow-xs">
+                              <Check size={12} />
+                            </div>
+                          )}
                         </div>
 
-                        <p className="text-xs text-slate-500 mb-3">{pack.description}</p>
-
-                        <div className="flex items-center space-x-2">
-                          <div className="w-7 h-7 rounded-lg border border-black/10 shadow-2xs" style={{ backgroundColor: pack.primary }} />
-                          <div className="w-7 h-7 rounded-lg border border-black/10 shadow-2xs" style={{ backgroundColor: pack.secondary }} />
-                          <div className="w-7 h-7 rounded-lg border border-black/10 shadow-2xs" style={{ backgroundColor: pack.navy }} />
-                          <div className="w-7 h-7 rounded-lg border border-black/10 shadow-2xs" style={{ backgroundColor: pack.accent }} />
-                          <div className="w-7 h-7 rounded-lg border border-slate-300 shadow-2xs" style={{ backgroundColor: pack.background }} />
+                        {/* Swatches */}
+                        <div className="flex items-center space-x-2 mt-3 pt-3 border-t border-slate-100">
+                          <span className="text-[10px] font-mono text-slate-400">Swatches:</span>
+                          <div className="flex items-center space-x-1.5">
+                            <span
+                              className="w-4 h-4 rounded-full border border-slate-300 shadow-2xs"
+                              style={{ backgroundColor: pack.primary }}
+                              title={`Primary: ${pack.primary}`}
+                            />
+                            <span
+                              className="w-4 h-4 rounded-full border border-slate-300 shadow-2xs"
+                              style={{ backgroundColor: pack.navy }}
+                              title={`Navy: ${pack.navy}`}
+                            />
+                            <span
+                              className="w-4 h-4 rounded-full border border-slate-300 shadow-2xs"
+                              style={{ backgroundColor: pack.secondary }}
+                              title={`Secondary: ${pack.secondary}`}
+                            />
+                            <span
+                              className="w-4 h-4 rounded-full border border-slate-300 shadow-2xs"
+                              style={{ backgroundColor: pack.accent }}
+                              title={`Accent: ${pack.accent}`}
+                            />
+                            <span
+                              className="w-4 h-4 rounded-full border border-slate-300 shadow-2xs"
+                              style={{ backgroundColor: pack.background }}
+                              title={`Background: ${pack.background}`}
+                            />
+                          </div>
                         </div>
                       </div>
                     );
@@ -736,453 +1003,302 @@ export default function VisualCustomizerPage() {
               </div>
             )}
 
-            {/* TAB 3: CUSTOM PALETTE */}
+            {/* TAB 2: GRANULAR CUSTOM PALETTE */}
             {activeTab === 'palette' && (
-              <div className="bg-white rounded-2xl border border-editorialBorder p-5 shadow-xs space-y-4 max-h-[640px] overflow-y-auto">
-                <div>
-                  <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Core Color Palette
+              <div className="bg-white p-5 rounded-2xl border border-editorialBorder shadow-xs space-y-5">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <h3 className="font-serif font-bold text-base text-editorialText-primary">
+                    Fine-Tuned Palette Pickers
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Fine-tune individual hex codes. Changes reflect immediately in the live preview.
-                  </p>
+                  <span className="text-[10px] font-mono font-bold text-emerald-brand uppercase tracking-wider">
+                    Hex Precision
+                  </span>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-800">Primary Brand Accent</label>
-                    <span className="text-xs font-mono font-bold text-slate-600">{theme.primaryColor}</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="color"
-                      value={theme.primaryColor}
-                      onChange={(e) => handleColorChange('primaryColor', e.target.value)}
-                      className="w-10 h-10 rounded-lg cursor-pointer border border-slate-300"
-                    />
-                    <input
-                      type="text"
-                      value={theme.primaryColor}
-                      onChange={(e) => handleColorChange('primaryColor', e.target.value)}
-                      className="flex-1 px-3 py-1.5 text-xs font-mono uppercase bg-white border border-slate-200 rounded-lg"
-                    />
-                  </div>
-                </div>
-
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-800">Secondary / Deep Tone</label>
-                    <span className="text-xs font-mono font-bold text-slate-600">{theme.secondaryColor}</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="color"
-                      value={theme.secondaryColor}
-                      onChange={(e) => handleColorChange('secondaryColor', e.target.value)}
-                      className="w-10 h-10 rounded-lg cursor-pointer border border-slate-300"
-                    />
-                    <input
-                      type="text"
-                      value={theme.secondaryColor}
-                      onChange={(e) => handleColorChange('secondaryColor', e.target.value)}
-                      className="flex-1 px-3 py-1.5 text-xs font-mono uppercase bg-white border border-slate-200 rounded-lg"
-                    />
-                  </div>
-                </div>
-
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-800">Header Dark Navy Tone</label>
-                    <span className="text-xs font-mono font-bold text-slate-600">{theme.navyColor}</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="color"
-                      value={theme.navyColor}
-                      onChange={(e) => handleColorChange('navyColor', e.target.value)}
-                      className="w-10 h-10 rounded-lg cursor-pointer border border-slate-300"
-                    />
-                    <input
-                      type="text"
-                      value={theme.navyColor}
-                      onChange={(e) => handleColorChange('navyColor', e.target.value)}
-                      className="flex-1 px-3 py-1.5 text-xs font-mono uppercase bg-white border border-slate-200 rounded-lg"
-                    />
-                  </div>
-                </div>
-
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-800">Page Background</label>
-                    <span className="text-xs font-mono font-bold text-slate-600">{theme.backgroundColor}</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="color"
-                      value={theme.backgroundColor}
-                      onChange={(e) => handleColorChange('backgroundColor', e.target.value)}
-                      className="w-10 h-10 rounded-lg cursor-pointer border border-slate-300"
-                    />
-                    <div className="flex items-center space-x-1.5 flex-1">
-                      {['#FFFFFF', '#F8FAFC', '#F5F7F6', '#0B132B'].map((bg) => (
-                        <button
-                          key={bg}
-                          type="button"
-                          onClick={() => handleColorChange('backgroundColor', bg)}
-                          className={`px-2 py-1 text-[10px] font-mono rounded border ${
-                            theme.backgroundColor === bg ? 'border-emerald-brand bg-emerald-50 text-emerald-800 font-bold' : 'bg-white text-slate-600'
-                          }`}
-                        >
-                          {bg}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <div className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                    Individual Category Badges
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {Object.entries(theme.categoryColors || {}).map(([cat, color]) => (
-                      <div key={cat} className="p-2 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
-                        <span className="text-xs capitalize font-medium text-slate-700">{cat}</span>
-                        <input
-                          type="color"
-                          value={color as string}
-                          onChange={(e) => handleCategoryColorChange(cat, e.target.value)}
-                          className="w-6 h-6 rounded cursor-pointer border-none"
-                        />
+                {/* Core Brand Colors */}
+                <div>
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5">
+                    Core Editorial Colors
+                  </h4>
+                  <div
+                    className={`grid ${
+                      screenMode === 'screen2' ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-2'
+                    } gap-2.5`}
+                  >
+                    {[
+                      { label: 'Primary Brand', key: 'primaryColor', val: theme.primaryColor },
+                      { label: 'Secondary Dark', key: 'secondaryColor', val: theme.secondaryColor },
+                      { label: 'Deep Editorial Navy', key: 'navyColor', val: theme.navyColor },
+                      { label: 'Highlight Accent', key: 'accentColor', val: theme.accentColor },
+                      { label: 'Site Background', key: 'backgroundColor', val: theme.backgroundColor },
+                    ].map((item) => (
+                      <div key={item.key} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                        <label className="text-[11px] font-bold text-slate-700 block mb-1">{item.label}</label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="color"
+                            value={item.val}
+                            onChange={(e) => handleColorChange(item.key, e.target.value)}
+                            className="w-7 h-7 rounded border border-slate-300 cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={item.val}
+                            onChange={(e) => handleColorChange(item.key, e.target.value)}
+                            className="w-full text-xs font-mono uppercase bg-white border border-slate-200 px-2 py-1 rounded"
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
+
+                {/* Individual Category Accent Colors */}
+                <div className="pt-3 border-t border-slate-100">
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5">
+                    Individual Category Badges & Accents
+                  </h4>
+                  <div
+                    className={`grid ${
+                      screenMode === 'screen2' ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2'
+                    } gap-2.5`}
+                  >
+                    {Object.entries(CATEGORY_NAMES).map(([slug, name]) => {
+                      const color = getCategoryColor(slug, theme.categoryColors);
+                      return (
+                        <div key={slug} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                          <label className="text-[11px] font-bold text-slate-700 block mb-1 truncate" title={name}>
+                            {name}
+                          </label>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="color"
+                              value={color}
+                              onChange={(e) => handleCategoryColorChange(slug, e.target.value)}
+                              className="w-7 h-7 rounded border border-slate-300 cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={color}
+                              onChange={(e) => handleCategoryColorChange(slug, e.target.value)}
+                              className="w-full text-xs font-mono uppercase bg-white border border-slate-200 px-2 py-1 rounded"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
-          </div>
 
-          {/* RIGHT: Live Interactive Preview Canvas (7 Cols on XL) with Mouse Drag Handles */}
-          <div className="xl:col-span-7 flex flex-col bg-slate-900 rounded-2xl p-4 shadow-xl border border-slate-800 min-h-[640px]">
-            {/* Preview Toolbar */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800 text-slate-300">
-              <div className="flex items-center space-x-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span className="text-xs font-bold text-white">Interactive Figma Canvas</span>
-                <span className="text-[10px] font-mono bg-slate-800 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded">
-                  Drag handles on canvas with mouse to resize
-                </span>
+            {/* TAB 3: CATEGORY DRAG & DROP REORDERING */}
+            {activeTab === 'categories' && (
+              <div className="bg-white p-5 rounded-2xl border border-editorialBorder shadow-xs space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <h3 className="font-serif font-bold text-base text-editorialText-primary">
+                    Rearrange Category Order
+                  </h3>
+                  <span className="text-[10px] font-mono font-bold text-emerald-brand uppercase tracking-wider">
+                    Drag or Click &uarr;&darr;
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Reorder categories by clicking the Up/Down arrows or dragging. The live site ribbon and header will
+                  reflect this exact sequence.
+                </p>
+
+                <div className="space-y-2">
+                  {currentOrder.map((slug, idx) => {
+                    const name = CATEGORY_NAMES[slug] || slug;
+                    const color = getCategoryColor(slug, theme.categoryColors);
+                    return (
+                      <div
+                        key={slug}
+                        draggable
+                        onDragStart={() => setDraggedCatIdx(idx)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => {
+                          if (draggedCatIdx === null || draggedCatIdx === idx) return;
+                          const newOrder = [...currentOrder];
+                          const [removed] = newOrder.splice(draggedCatIdx, 1);
+                          newOrder.splice(idx, 0, removed);
+                          const next = { ...theme, categoryOrder: newOrder };
+                          setTheme(next);
+                          broadcastTheme(next);
+                          setHasChanges(true);
+                          setDraggedCatIdx(null);
+                        }}
+                        className="p-3 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200 flex items-center justify-between transition cursor-grab"
+                      >
+                        <div className="flex items-center space-x-2.5">
+                          <GripVertical size={16} className="text-slate-400" />
+                          <span
+                            className="w-3 h-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: color }}
+                          />
+                          <span className="text-xs font-bold text-slate-800">
+                            #{idx + 1}. {name}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center space-x-1">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => handleMoveCategory(idx, 'up')}
+                            className="p-1 text-slate-500 hover:text-slate-800 disabled:opacity-30 rounded hover:bg-slate-200"
+                            title="Move Category Up"
+                          >
+                            <ArrowUp size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === currentOrder.length - 1}
+                            onClick={() => handleMoveCategory(idx, 'down')}
+                            className="p-1 text-slate-500 hover:text-slate-800 disabled:opacity-30 rounded hover:bg-slate-200"
+                            title="Move Category Down"
+                          >
+                            <ArrowDown size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
+            )}
 
-              {/* Device Selector */}
-              <div className="flex items-center space-x-1 bg-slate-800 p-1 rounded-lg">
-                <button
-                  type="button"
-                  onClick={() => setPreviewDevice('desktop')}
-                  className={`p-1.5 rounded transition ${
-                    previewDevice === 'desktop' ? 'bg-emerald-brand text-white' : 'text-slate-400 hover:text-white'
-                  }`}
-                  title="Desktop View (1440px)"
-                >
-                  <Monitor size={14} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewDevice('tablet')}
-                  className={`p-1.5 rounded transition ${
-                    previewDevice === 'tablet' ? 'bg-emerald-brand text-white' : 'text-slate-400 hover:text-white'
-                  }`}
-                  title="Tablet View (768px)"
-                >
-                  <Tablet size={14} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewDevice('mobile')}
-                  className={`p-1.5 rounded transition ${
-                    previewDevice === 'mobile' ? 'bg-emerald-brand text-white' : 'text-slate-400 hover:text-white'
-                  }`}
-                  title="Mobile View (375px)"
-                >
-                  <Smartphone size={14} />
-                </button>
-              </div>
-            </div>
-
-            {/* Simulated Live Website Frame */}
-            <div className="flex-1 flex items-start justify-center overflow-auto pt-4 pb-2">
-              <div
-                style={{
-                  backgroundColor: theme.backgroundColor,
-                  borderRadius: theme.borderRadius,
-                  maxWidth: previewDevice === 'desktop' ? '100%' : previewDevice === 'tablet' ? '768px' : '375px',
-                  width: '100%',
-                  transition: isDragging ? 'none' : 'max-width 0.3s ease',
-                }}
-                className="border border-slate-300 shadow-2xl overflow-hidden font-sans text-slate-900"
-              >
-                {/* Simulated Ticker */}
-                {theme.sections.ticker && (
-                  <div
-                    style={{ backgroundColor: theme.navyColor }}
-                    className="text-white text-[10px] px-3 py-1.5 flex items-center justify-between border-b border-white/10"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <span className="font-bold" style={{ color: theme.primaryColor }}>REALTY STOCKS</span>
-                      <span>DLF ₹812.40 +1.76%</span>
-                      <span>Godrej Prop ₹2,834.20 +2.11%</span>
-                    </div>
-                    <span className="opacity-60 hidden sm:inline">LIVE SIMULATION</span>
-                  </div>
-                )}
-
-                {/* Simulated Header */}
-                <div
-                  style={{ backgroundColor: theme.navyColor }}
-                  className="px-4 py-3 flex items-center justify-between border-b border-white/10 text-white"
-                >
-                  <div className="font-serif font-extrabold text-base tracking-tight">
-                    Nesture<span style={{ color: theme.primaryColor }}>Journal</span>
-                  </div>
-                  <div className="flex items-center space-x-3 text-xs opacity-80">
-                    <span>Residential</span>
-                    <span>Commercial</span>
-                    <span>Development</span>
-                    <span>Finance</span>
-                  </div>
-                  <button
-                    style={{ backgroundColor: theme.primaryColor, borderRadius: theme.borderRadius }}
-                    className="px-2.5 py-1 text-white text-[11px] font-bold shadow-xs"
-                  >
-                    Subscribe
-                  </button>
+            {/* TAB 4: PRESETS & TEMPLATES ENGINE */}
+            {activeTab === 'presets' && (
+              <div className="bg-white p-5 rounded-2xl border border-editorialBorder shadow-xs space-y-5">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <h3 className="font-serif font-bold text-base text-editorialText-primary">
+                    Design Presets & Templates
+                  </h3>
+                  <span className="text-[10px] font-mono font-bold text-emerald-brand uppercase tracking-wider">
+                    Instant Styling
+                  </span>
                 </div>
 
-                {/* Simulated Hero Section with Mouse Drag Handle */}
-                {theme.sections.hero && (
-                  <div className="p-4 space-y-3">
-                    {theme.heroWidth === 'full' ? (
-                      // 12-Column Full Width Hero Banner
-                      <div className="space-y-4">
-                        <div
-                          style={{
-                            height: theme.heroHeight,
-                            borderRadius: theme.borderRadius,
-                            backgroundImage: `linear-gradient(to right, ${theme.navyColor} 40%, rgba(7, 27, 43, 0.4)), url(https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&q=80)`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                          }}
-                          className="p-6 text-white flex flex-col justify-end relative shadow-md group border-2 border-emerald-brand/40 hover:border-emerald-brand transition-all"
-                        >
-                          {/* Top-Right Dimension Tag */}
-                          <div className="absolute top-3 right-3 px-2 py-0.5 bg-black/60 backdrop-blur-xs text-[10px] font-mono text-emerald-300 rounded border border-emerald-400/30">
-                            Banner: {theme.heroHeight} × 12-Cols
-                          </div>
-
-                          <div className="space-y-2 max-w-xl">
-                            <span
-                              style={{ backgroundColor: theme.primaryColor, borderRadius: theme.borderRadius }}
-                              className="px-2.5 py-0.5 text-[10px] font-bold uppercase inline-block"
-                            >
-                              FLAGSHIP EDITORIAL (12-COL FULL WIDTH)
-                            </span>
-                            <h2 className="font-serif font-bold text-xl sm:text-2xl leading-tight">
-                              The Future of Real Estate, Clearly Told
-                            </h2>
-                            <p className="text-xs text-gray-200 line-clamp-2">
-                              Full-width immersive banner layout automatically adjusting layout flow across viewports.
-                            </p>
-                            <button
-                              style={{ backgroundColor: theme.primaryColor, borderRadius: theme.borderRadius }}
-                              className="px-3.5 py-1.5 text-xs font-bold text-white shadow-xs inline-block mt-1"
-                            >
-                              Read Full Story
-                            </button>
-                          </div>
-
-                          {/* DIRECT MOUSE DRAG RESIZE HANDLE AT BOTTOM */}
-                          <div
-                            onMouseDown={(e) => startMouseDragResize('heroHeight', 280, 650, e)}
-                            className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-4 py-1 bg-emerald-brand text-white rounded-full text-[10px] font-mono font-bold flex items-center space-x-1 cursor-ns-resize shadow-md hover:scale-105 active:scale-95 transition z-20 group-hover:opacity-100"
-                            title="Click and drag with mouse up/down to make bigger or smaller"
-                          >
-                            <ChevronsUpDown size={12} />
-                            <span>Drag with mouse to resize ({theme.heroHeight})</span>
-                          </div>
-                        </div>
-
-                        {/* Side stories automatically reflowed underneath into a 3-column row */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          {[
-                            'Affordable Housing Gains Momentum Across Tier-2 Cities',
-                            "Office Space Demand Remains Strong in India's Major Markets",
-                            "Global Investors Eye India's Real Estate Growth Story",
-                          ].map((title, i) => (
-                            <div
-                              key={i}
-                              style={{
-                                height: theme.sideCardHeight || '85px',
-                                borderRadius: theme.borderRadius,
-                              }}
-                              className="p-3 bg-white border border-slate-200 shadow-2xs flex flex-col justify-between"
-                            >
-                              <span style={{ color: theme.primaryColor }} className="text-[10px] font-bold uppercase">
-                                REFLOWED STORY 0{i + 1}
-                              </span>
-                              <div className="font-serif font-bold text-xs text-slate-900 line-clamp-2">
-                                {title}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      // 8-Column Split Layout
-                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-                        <div
-                          style={{
-                            height: theme.heroHeight,
-                            borderRadius: theme.borderRadius,
-                            backgroundImage: `linear-gradient(to right, ${theme.navyColor} 40%, rgba(7, 27, 43, 0.4)), url(https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&q=80)`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                          }}
-                          className="lg:col-span-8 p-5 text-white flex flex-col justify-end relative shadow-md group border-2 border-emerald-brand/40 hover:border-emerald-brand transition-all"
-                        >
-                          <div className="absolute top-3 right-3 px-2 py-0.5 bg-black/60 backdrop-blur-xs text-[10px] font-mono text-emerald-300 rounded border border-emerald-400/30">
-                            Banner: {theme.heroHeight} × 8-Cols
-                          </div>
-
-                          <div className="space-y-2">
-                            <span
-                              style={{ backgroundColor: theme.primaryColor, borderRadius: theme.borderRadius }}
-                              className="px-2 py-0.5 text-[9px] font-bold uppercase inline-block"
-                            >
-                              SPLIT 8-COL BANNER
-                            </span>
-                            <h2 className="font-serif font-bold text-lg sm:text-xl leading-tight">
-                              The Future of Real Estate, Clearly Told
-                            </h2>
-                            <p className="text-[11px] text-gray-200 line-clamp-2">
-                              Standard 65% / 35% hero ratio with 3 stacked cards on the right.
-                            </p>
-                          </div>
-
-                          {/* DIRECT MOUSE DRAG RESIZE HANDLE AT BOTTOM */}
-                          <div
-                            onMouseDown={(e) => startMouseDragResize('heroHeight', 280, 650, e)}
-                            className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-4 py-1 bg-emerald-brand text-white rounded-full text-[10px] font-mono font-bold flex items-center space-x-1 cursor-ns-resize shadow-md hover:scale-105 active:scale-95 transition z-20 group-hover:opacity-100"
-                            title="Click and drag with mouse up/down to make bigger or smaller"
-                          >
-                            <ChevronsUpDown size={12} />
-                            <span>Drag with mouse to resize ({theme.heroHeight})</span>
-                          </div>
-                        </div>
-
-                        {/* 3 Stacked Cards on Right (4 Cols) with Individual Height */}
-                        <div className="lg:col-span-4 flex flex-col justify-between space-y-2">
-                          {[
-                            'Affordable Housing Gains Momentum Across Tier-2 Cities',
-                            "Office Space Demand Remains Strong in India's Major Markets",
-                            "Global Investors Eye India's Real Estate Growth Story",
-                          ].map((title, i) => (
-                            <div
-                              key={i}
-                              style={{
-                                height: theme.sideCardHeight || '85px',
-                                borderRadius: theme.borderRadius,
-                              }}
-                              className="p-2.5 bg-white border border-slate-200 shadow-2xs flex-1 flex flex-col justify-center space-y-1 relative group"
-                            >
-                              <span style={{ color: theme.primaryColor }} className="text-[9px] font-bold uppercase">
-                                HIGHLIGHT 0{i + 1}
-                              </span>
-                              <div className="font-serif font-bold text-[11px] text-slate-800 line-clamp-2">
-                                {title}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Simulated Article Cards & Market Intelligence Section */}
-                {theme.sections.latestInsights && (
-                  <div className="p-4 border-t border-slate-200 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-serif font-bold text-xs text-slate-800">Latest Insights</span>
-                      <span className="text-[10px] text-slate-400">Card Image: {theme.insightsCardImageHeight || '180px'}</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      {[1, 2].map((n) => (
-                        <div
-                          key={n}
-                          style={{ borderRadius: theme.borderRadius }}
-                          className="bg-white border border-slate-200 overflow-hidden shadow-2xs relative group"
-                        >
-                          <div
-                            style={{ height: theme.insightsCardImageHeight || '180px' }}
-                            className="bg-slate-200 relative overflow-hidden"
-                          >
-                            <img
-                              src={
-                                n === 1
-                                  ? 'https://images.unsplash.com/photo-1460317442991-0ec209397118?auto=format&fit=crop&w=400&q=80'
-                                  : 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=400&q=80'
-                              }
-                              alt=""
-                              className="w-full h-full object-cover"
-                            />
-                            {/* Mouse drag resize handle for cards */}
-                            <div
-                              onMouseDown={(e) => startMouseDragResize('insightsCardImageHeight', 120, 260, e)}
-                              className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/70 text-white rounded text-[9px] font-mono cursor-ns-resize"
-                              title="Drag with mouse to resize image height"
-                            >
-                              ↕ {theme.insightsCardImageHeight || '180px'}
-                            </div>
-                          </div>
-                          <div className="p-2.5 space-y-1">
-                            <span style={{ color: theme.primaryColor }} className="text-[9px] font-bold">
-                              RESIDENTIAL
-                            </span>
-                            <div className="font-serif font-bold text-xs text-slate-900 line-clamp-1">
-                              {n === 1 ? 'Top Residential Hotspots to Watch' : 'Office Leasing Surges in Tech Hubs'}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Simulated Category Badges Bar */}
-                <div className="px-4 py-2 border-t border-slate-200 flex flex-wrap gap-1.5 bg-slate-50">
-                  {Object.entries(theme.categoryColors || {}).map(([cat, color]) => (
-                    <span
-                      key={cat}
-                      style={{
-                        backgroundColor: `${color}15`,
-                        color: color as string,
-                        borderColor: `${color}40`,
-                        borderRadius: theme.borderRadius,
-                      }}
-                      className="px-2 py-0.5 text-[10px] font-bold border uppercase"
+                {/* Save Current as New Preset Form */}
+                <form onSubmit={handleSavePreset} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                  <label className="text-xs font-bold text-slate-700 block">Save Current Configuration as Preset</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={newPresetName}
+                      onChange={(e) => setNewPresetName(e.target.value)}
+                      placeholder="e.g. Festival 2026 Edition"
+                      className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-emerald-brand"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!newPresetName.trim()}
+                      className="px-3 py-1.5 bg-emerald-brand text-white text-xs font-bold rounded-lg hover:bg-emerald-deep transition disabled:opacity-50"
                     >
-                      {cat}
-                    </span>
+                      Save Preset
+                    </button>
+                  </div>
+                </form>
+
+                {/* Preset List */}
+                <div
+                  className={`grid ${
+                    screenMode === 'screen2' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'
+                  } gap-3`}
+                >
+                  {presets.map((preset) => (
+                    <div
+                      key={preset.id}
+                      className="p-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50/50 transition flex flex-col justify-between space-y-3"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-serif font-bold text-sm text-slate-900">{preset.name}</span>
+                          <span
+                            className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                              preset.badge === 'DEFAULT'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : preset.badge === 'CUSTOM'
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            {preset.badge}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">{preset.tagline}</p>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                        <div className="flex items-center space-x-1.5">
+                          <span
+                            className="w-4 h-4 rounded-full border border-slate-300"
+                            style={{ backgroundColor: preset.primaryColor }}
+                          />
+                          <span
+                            className="w-4 h-4 rounded-full border border-slate-300"
+                            style={{ backgroundColor: preset.navyColor }}
+                          />
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          {preset.id.startsWith('custom-') && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePreset(preset.id, preset.name)}
+                              className="text-red-500 hover:text-red-700 p-1"
+                              title="Delete custom preset"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleApplyPresetClick(preset)}
+                            className="px-3 py-1 bg-slate-900 hover:bg-emerald-brand text-white text-xs font-bold rounded-lg transition"
+                          >
+                            Apply Template
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
+
+        {/* UNIVERSAL CONFIRMATION MODAL */}
+        {confirmModal && confirmModal.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+              <div className="flex items-center space-x-3 text-amber-600">
+                <AlertTriangle size={24} />
+                <h3 className="font-serif font-bold text-lg text-slate-900">{confirmModal.title}</h3>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">{confirmModal.message}</p>
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setConfirmModal(null)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmModal.onConfirm}
+                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-brand hover:bg-emerald-deep rounded-xl shadow-xs"
+                >
+                  Confirm & Apply
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

@@ -109,7 +109,7 @@ test.describe('Nesture Journal - Complete Platform E2E Tests', () => {
 
     // 2. Sources & Content Feeds (PropNewsTime, Realty & More)
     await page.goto('/admin/sources');
-    await expect(page.locator('text=News Sources & Content Attribution')).toBeVisible();
+    await expect(page.locator('h1:has-text("News Sources & Content Attribution")')).toBeVisible();
     await expect(page.locator('text=PropNewsTime').first()).toBeVisible();
     await expect(page.locator('text=Realty & More').first()).toBeVisible();
 
@@ -120,7 +120,7 @@ test.describe('Nesture Journal - Complete Platform E2E Tests', () => {
     await expect(page.locator('text=Emerald Heritage')).toBeVisible();
 
     await page.goto('/admin/settings');
-    await expect(page.locator('text=Profile & Platform Settings')).toBeVisible();
+    await expect(page.locator('h1:has-text("Profile & Platform Settings")')).toBeVisible();
     await expect(page.locator('text=Editorial Profile & Identity')).toBeVisible();
 
     // 4. Articles Delete / Trash
@@ -129,12 +129,13 @@ test.describe('Nesture Journal - Complete Platform E2E Tests', () => {
 
     // 5. Navbar Settings
     await page.goto('/admin/settings/navbar');
-    await expect(page.locator('text=Navbar Settings & Menu Architecture')).toBeVisible();
+    await expect(page.locator('h1:has-text("Navbar Settings & Menu Architecture")')).toBeVisible();
 
-    // 6. Show Published Articles (Navy Header Table matching reference)
+    // 6. Show Published Articles
     await page.goto('/admin/articles?status=PUBLISHED');
     await expect(page.locator('h1:has-text("Published Articles")')).toBeVisible();
-    await expect(page.locator('th:has-text("seo_keywords")')).toBeVisible();
+    await page.click('button[title="Compact Table View"]');
+    await expect(page.locator('th:has-text("Headline & Source")')).toBeVisible();
 
     // 7. Show Unpublished Articles (Card View matching reference)
     await page.goto('/admin/articles?status=UNPUBLISHED');
