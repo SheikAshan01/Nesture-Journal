@@ -136,20 +136,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const [user, setUser] = useState<{ name: string; email: string; role: string; avatar?: string } | null>(() => {
-    if (globalAdminUser) return globalAdminUser;
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = sessionStorage.getItem('nesture_admin_user');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          globalAdminUser = parsed;
-          return parsed;
-        }
-      } catch {}
-    }
-    return null;
-  });
+  const [user, setUser] = useState<{ name: string; email: string; role: string; avatar?: string } | null>(null);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -199,13 +186,24 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     };
   }, []);
 
-  const [loading, setLoading] = useState<boolean>(() => {
-    if (globalAdminUser) return false;
-    if (typeof window !== 'undefined' && sessionStorage.getItem('nesture_admin_user')) {
-      return false;
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (globalAdminUser) {
+      setUser(globalAdminUser);
+      setLoading(false);
+      return;
     }
-    return true;
-  });
+    try {
+      const stored = sessionStorage.getItem('nesture_admin_user');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        globalAdminUser = parsed;
+        setUser(parsed);
+        setLoading(false);
+      }
+    } catch {}
+  }, []);
 
   // Listen to profile updates live across the window
   useEffect(() => {
