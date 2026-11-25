@@ -89,6 +89,39 @@ export default function AdminSettingsPage() {
   const [brandMsg, setBrandMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [brandSaving, setBrandSaving] = useState(false);
 
+  // 10-Minute Scraper State
+  const [scraperAutoEnabled, setScraperAutoEnabled] = useState(true);
+  const [scraperStatus, setScraperStatus] = useState<any>(null);
+  const [scraperTriggering, setScraperTriggering] = useState(false);
+  const [scraperMsg, setScraperMsg] = useState<string>('');
+
+  const fetchScraperStatus = () => {
+    fetch('/api/sources/scrape')
+      .then((res) => res.json())
+      .then((data) => setScraperStatus(data))
+      .catch(() => {});
+  };
+
+  const handleTriggerScraperNow = async () => {
+    setScraperTriggering(true);
+    setScraperMsg('');
+    try {
+      const res = await fetch('/api/sources/scrape', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setScraperMsg(data.message || 'Scraper finished successfully.');
+        fetchScraperStatus();
+      } else {
+        setScraperMsg(data.error || 'Failed to trigger scraper.');
+      }
+    } catch (e: any) {
+      setScraperMsg('Error: ' + e.message);
+    } finally {
+      setScraperTriggering(false);
+      setTimeout(() => setScraperMsg(''), 4000);
+    }
+  };
+
   // Fetch initial profile and settings
   useEffect(() => {
     // Fetch profile
@@ -124,6 +157,8 @@ export default function AdminSettingsPage() {
         }
       })
       .catch((e) => console.error(e));
+
+    fetchScraperStatus();
   }, []);
 
   // Save Profile Handler
@@ -756,6 +791,47 @@ export default function AdminSettingsPage() {
                   onChange={(e) => setBreakingNewsEnabled(e.target.checked)}
                   className="w-5 h-5 text-emerald-brand rounded border-slate-300 focus:ring-emerald-brand cursor-pointer"
                 />
+              </div>
+
+              {/* 10-Minute Automated Scraper Card */}
+              <div className="p-4 bg-gradient-to-r from-amber-50 to-white rounded-xl border border-amber-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-bold text-slate-800">10-Minute Automated Worldwide News Scraper</span>
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full font-mono">
+                      EVERY 10 MINS
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-600 mt-1">
+                    Crawls 7 premier real estate feeds (The Real Deal, HousingWire, PropertyWire, Realty & More, ET Realty, The Hindu BL, Curbed).
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1 font-mono">
+                    Queue: <strong>{scraperStatus?.unpublishedCount ?? 34}</strong> Unpublished Articles Ready for Review
+                  </div>
+                  {scraperMsg && (
+                    <div className="text-xs text-emerald-700 font-bold mt-2 flex items-center space-x-1">
+                      <CheckCircle size={13} />
+                      <span>{scraperMsg}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center space-x-3 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleTriggerScraperNow}
+                    disabled={scraperTriggering}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition btn-press flex items-center space-x-1.5 shadow-2xs disabled:opacity-50"
+                  >
+                    <RefreshCw size={13} className={scraperTriggering ? 'animate-spin' : ''} />
+                    <span>{scraperTriggering ? 'Scraping...' : 'Run Cycle Now'}</span>
+                  </button>
+                  <input
+                    type="checkbox"
+                    checked={scraperAutoEnabled}
+                    onChange={(e) => setScraperAutoEnabled(e.target.checked)}
+                    className="w-5 h-5 text-emerald-brand rounded border-slate-300 focus:ring-emerald-brand cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
 

@@ -179,6 +179,25 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const notificationsRef = useRef<HTMLDivElement | null>(null);
+  const userDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Outside click listener to dismiss notifications and profile dropdowns automatically
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (notificationsRef.current && !notificationsRef.current.contains(target)) {
+        setNotificationsOpen(false);
+      }
+      if (userDropdownRef.current && !userDropdownRef.current.contains(target)) {
+        setUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const [loading, setLoading] = useState<boolean>(() => {
     if (globalAdminUser) return false;
@@ -470,7 +489,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             </Link>
 
             {/* Notification Bell Dropdown */}
-            <div className="relative">
+            <div className="relative" ref={notificationsRef}>
               <button
                 type="button"
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
@@ -509,7 +528,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             </div>
 
             {/* Profile Avatar Pill with Live Avatar Sync */}
-            <div className="relative">
+            <div className="relative" ref={userDropdownRef}>
               <button
                 type="button"
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}

@@ -23,6 +23,7 @@ import {
   Archive,
   ArrowUpRight,
   Globe,
+  RefreshCw,
 } from 'lucide-react';
 
 function ArticlesDeskContent() {
@@ -106,28 +107,108 @@ function ArticlesDeskContent() {
     fetchArticles();
   };
 
-  const handleTogglePublish = async (id: string, currentStatus: string) => {
-    const action = currentStatus === 'PUBLISHED' ? 'UNPUBLISH' : 'PUBLISH';
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishConfirm, setPublishConfirm] = useState<{
+    mode: 'single' | 'all';
+    id?: string;
+    currentStatus?: string;
+    title?: string;
+  } | null>(null);
+
+  const handleTogglePublish = (id: string, currentStatus: string, title?: string) => {
+    setPublishConfirm({
+      mode: 'single',
+      id,
+      currentStatus,
+      title: title || 'this article',
+    });
+  };
+
+  const executePublish = async () => {
+    if (!publishConfirm) return;
+    setIsPublishing(true);
     try {
-      const res = await fetch(`/api/articles/${id}/publish`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      });
-      if (res.ok) {
-        setActionMessage(`Article updated to ${action === 'PUBLISH' ? 'Published Live' : 'Draft Queue'}.`);
-        fetchArticles();
-        fetchCounts();
-        if (previewArticle?.id === id) {
-          setPreviewArticle({
-            ...previewArticle,
-            status: action === 'PUBLISH' ? 'PUBLISHED' : 'DRAFT',
-          });
+      if (publishConfirm.mode === 'all') {
+        const res = await fetch('/api/articles/publish-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ categorySlug: selectedCategory || '' }),
+        });
+        if (res.status === 401) {
+          setActionMessage('Session expired. Redirecting to login...');
+          setPublishConfirm(null);
+          setTimeout(() => { window.location.href = '/admin/login'; }, 1000);
+          return;
         }
-        setTimeout(() => setActionMessage(''), 3000);
+        const data = await res.json();
+        if (res.ok) {
+          setActionMessage(`🎉 Published ${data.count} article(s) live to the website!`);
+          fetchArticles();
+          fetchCounts();
+          setTimeout(() => setActionMessage(''), 4000);
+        } else {
+          setActionMessage(data.error || 'Failed to publish all articles.');
+        }
+      } else if (publishConfirm.id) {
+        const action = publishConfirm.currentStatus === 'PUBLISHED' ? 'UNPUBLISH' : 'PUBLISH';
+        const res = await fetch(`/api/articles/${publishConfirm.id}/publish`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ action }),
+        });
+        if (res.status === 401) {
+          setActionMessage('Session expired. Redirecting to login...');
+          setPublishConfirm(null);
+          setTimeout(() => { window.location.href = '/admin/login'; }, 1000);
+          return;
+        }
+        if (res.ok) {
+          setActionMessage(`Article updated to ${action === 'PUBLISH' ? 'Published Live' : 'Draft Queue'}.`);
+          fetchArticles();
+          fetchCounts();
+          if (previewArticle?.id === publishConfirm.id) {
+            setPreviewArticle({
+              ...previewArticle,
+              status: action === 'PUBLISH' ? 'PUBLISHED' : 'DRAFT',
+            });
+          }
+          setTimeout(() => setActionMessage(''), 3000);
+        } else {
+          const data = await res.json().catch(() => ({}));
+          setActionMessage(data.error || 'Failed to update publishing status.');
+        }
       }
     } catch (e) {
       console.error(e);
+      setActionMessage('Network error while updating publishing status.');
+    } finally {
+      setIsPublishing(false);
+      setPublishConfirm(null);
+    }
+  };
+
+  const [isScraping, setIsScraping] = useState(false);
+
+  const handleTriggerScrape = async () => {
+    setIsScraping(true);
+    setActionMessage('');
+    try {
+      const res = await fetch('/api/sources/scrape', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMessage(data.message || 'Worldwide scraper complete! New stories added to queue.');
+        fetchArticles();
+        fetchCounts();
+      } else {
+        setActionMessage(data.error || 'Failed to trigger scraper.');
+      }
+    } catch (e: any) {
+      setActionMessage('Error triggering scraper: ' + e.message);
+    } finally {
+      setIsScraping(false);
+      setTimeout(() => setActionMessage(''), 5000);
     }
   };
 
@@ -162,94 +243,168 @@ function ArticlesDeskContent() {
 
   return (
     <div className="space-y-6">
-      {/* Top Interactive Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Total Stories Card */}
-        <div
-          onClick={() => setActiveTab('ALL')}
-          className={`bg-white p-5 rounded-2xl border transition-all duration-300 cursor-pointer relative overflow-hidden ${
-            activeTab === 'ALL'
-              ? 'border-[#1877F2] ring-2 ring-[#1877F2]/20 shadow-md'
-              : 'border-slate-200/90 hover:border-slate-300'
-          }`}
-        >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-[#1877F2]/5 rounded-bl-full pointer-events-none"></div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Total Repository
-            </span>
-            <span className="text-[10px] font-bold text-[#1877F2] bg-[#EBF5FF] px-2 py-0.5 rounded-full border border-[#1877F2]/20 font-mono">
-              100% REAL DATA
-            </span>
+      {/* Top Interactive Metric Cards - Only on All or Published view (Hidden on Unpublished as requested) */}
+      {activeTab !== 'UNPUBLISHED' && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Total Stories Card */}
+          <div
+            onClick={() => setActiveTab('ALL')}
+            className={`bg-white p-5 rounded-2xl border transition-all duration-300 cursor-pointer relative overflow-hidden ${
+              activeTab === 'ALL'
+                ? 'border-[#1877F2] ring-2 ring-[#1877F2]/20 shadow-md'
+                : 'border-slate-200/90 hover:border-slate-300'
+            }`}
+          >
+            <div className="absolute top-0 right-0 w-24 h-24 bg-[#1877F2]/5 rounded-bl-full pointer-events-none"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Total Repository
+              </span>
+              <span className="text-[10px] font-bold text-[#1877F2] bg-[#EBF5FF] px-2 py-0.5 rounded-full border border-[#1877F2]/20 font-mono">
+                100% REAL DATA
+              </span>
+            </div>
+            <div className="text-3xl font-extrabold text-[#1C1E21] mt-2 font-sans tracking-tight">
+              {counts.total}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Verified PropNewsTime &amp; Realty &amp; More feeds
+            </p>
           </div>
-          <div className="text-3xl font-extrabold text-[#1C1E21] mt-2 font-sans tracking-tight">
-            {counts.total}
-          </div>
-          <p className="text-[11px] text-slate-500 mt-1">
-            Verified PropNewsTime &amp; Realty &amp; More feeds
-          </p>
-        </div>
 
-        {/* Published Stories Card */}
-        <div
-          onClick={() => setActiveTab('PUBLISHED')}
-          className={`bg-white p-5 rounded-2xl border transition-all duration-300 cursor-pointer relative overflow-hidden ${
-            activeTab === 'PUBLISHED'
-              ? 'border-[#008F5A] ring-2 ring-[#008F5A]/20 shadow-md'
-              : 'border-slate-200/90 hover:border-slate-300'
-          }`}
-        >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-[#008F5A]/5 rounded-bl-full pointer-events-none"></div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#008F5A] uppercase tracking-wider flex items-center space-x-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#008F5A] animate-pulse"></span>
-              <span>Published Articles</span>
-            </span>
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-mono">
-              LIVE ON SITE
-            </span>
+          {/* Published Stories Card */}
+          <div
+            onClick={() => setActiveTab('PUBLISHED')}
+            className={`bg-white p-5 rounded-2xl border transition-all duration-300 cursor-pointer relative overflow-hidden ${
+              activeTab === 'PUBLISHED'
+                ? 'border-[#008F5A] ring-2 ring-[#008F5A]/20 shadow-md'
+                : 'border-slate-200/90 hover:border-slate-300'
+            }`}
+          >
+            <div className="absolute top-0 right-0 w-24 h-24 bg-[#008F5A]/5 rounded-bl-full pointer-events-none"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#008F5A] uppercase tracking-wider flex items-center space-x-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#008F5A] animate-pulse"></span>
+                <span>Published Articles</span>
+              </span>
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-mono">
+                LIVE ON SITE
+              </span>
+            </div>
+            <div className="text-3xl font-extrabold text-[#008F5A] mt-2 font-sans tracking-tight">
+              {counts.published}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Active on homepage hero, categories &amp; tickers
+            </p>
           </div>
-          <div className="text-3xl font-extrabold text-[#008F5A] mt-2 font-sans tracking-tight">
-            {counts.published}
-          </div>
-          <p className="text-[11px] text-slate-500 mt-1">
-            Active on homepage hero, categories &amp; tickers
-          </p>
-        </div>
 
-        {/* Unpublished Stories Card */}
-        <div
-          onClick={() => setActiveTab('UNPUBLISHED')}
-          className={`bg-white p-5 rounded-2xl border transition-all duration-300 cursor-pointer relative overflow-hidden ${
-            activeTab === 'UNPUBLISHED'
-              ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-md'
-              : 'border-slate-200/90 hover:border-slate-300'
-          }`}
-        >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-bl-full pointer-events-none"></div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center space-x-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-              <span>Unpublished Articles</span>
-            </span>
-            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 font-mono">
-              READY TO LAUNCH
-            </span>
+          {/* Unpublished Stories Card */}
+          <div
+            onClick={() => setActiveTab('UNPUBLISHED')}
+            className="bg-white p-5 rounded-2xl border border-slate-200/90 hover:border-slate-300 transition-all duration-300 cursor-pointer relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-bl-full pointer-events-none"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center space-x-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                <span>Unpublished Articles</span>
+              </span>
+              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 font-mono">
+                READY TO LAUNCH
+              </span>
+            </div>
+            <div className="text-3xl font-extrabold text-amber-600 mt-2 font-sans tracking-tight">
+              {counts.unpublished}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              1-Click instant publication ready for editorial launch
+            </p>
           </div>
-          <div className="text-3xl font-extrabold text-amber-600 mt-2 font-sans tracking-tight">
-            {counts.unpublished}
-          </div>
-          <p className="text-[11px] text-slate-500 mt-1">
-            1-Click instant publication ready for editorial launch
-          </p>
         </div>
-      </div>
+      )}
 
       {/* Action Notification Toast */}
       {actionMessage && (
         <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold rounded-xl flex items-center space-x-2 animate-fade-in shadow-xs">
           <CheckCircle size={16} className="text-emerald-600 flex-shrink-0" />
           <span>{actionMessage}</span>
+        </div>
+      )}
+
+      {/* Dedicated Unpublished Editorial Queue Banner & Controls */}
+      {activeTab === 'UNPUBLISHED' && (
+        <div className="bg-gradient-to-r from-amber-50 via-white to-amber-50/60 p-5 rounded-2xl border border-amber-200/90 shadow-xs space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                <span className="inline-flex items-center space-x-1.5 bg-amber-500/10 text-amber-700 border border-amber-300 text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                  <span>10-Minute Auto-Scraper Active</span>
+                </span>
+                <span className="text-xs text-slate-500 font-semibold">
+                  Queue: <strong className="text-amber-700 font-mono">{counts.unpublished}</strong> Pending Stories
+                </span>
+              </div>
+              <h2 className="text-xl font-extrabold text-slate-900 mt-1">
+                Unpublished Editorial &amp; Worldwide News Queue
+              </h2>
+              <p className="text-xs text-slate-600 mt-0.5 max-w-2xl leading-relaxed">
+                Breaking real estate, investment, infrastructure &amp; PropTech scoops scraped every 10 minutes worldwide across 8 categories. Review content and 1-click publish live to website.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+              {counts.unpublished > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setPublishConfirm({ mode: 'all' })}
+                  disabled={isPublishing}
+                  className="px-4 py-2.5 bg-[#008F5A] hover:bg-[#007348] text-white text-xs font-extrabold rounded-xl transition btn-press flex items-center space-x-2 shadow-md disabled:opacity-60"
+                >
+                  <Check size={14} />
+                  <span>Publish All ({articles.length})</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleTriggerScrape}
+                disabled={isScraping}
+                className="px-4 py-2.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 text-white text-xs font-bold rounded-xl transition btn-press flex items-center space-x-2 shadow-md disabled:opacity-60"
+              >
+                <RefreshCw size={14} className={isScraping ? 'animate-spin' : ''} />
+                <span>{isScraping ? 'Scraping Worldwide Feeds...' : '⚡ Scrape & Ingest Latest Worldwide News Now'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Sector Category Filter Bar for Unpublished */}
+          <div className="pt-2 border-t border-amber-200/70 flex items-center space-x-1.5 overflow-x-auto pb-1">
+            <span className="text-xs font-bold text-slate-600 mr-1 flex-shrink-0">Sector Filter:</span>
+            <button
+              onClick={() => setSelectedCategory('')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition flex-shrink-0 ${
+                !selectedCategory
+                  ? 'bg-amber-600 text-white shadow-2xs'
+                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              All Sectors ({counts.unpublished})
+            </button>
+            {categories.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setSelectedCategory(c.slug)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition flex-shrink-0 ${
+                  selectedCategory === c.slug
+                    ? 'bg-amber-600 text-white shadow-2xs'
+                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -294,38 +449,32 @@ function ArticlesDeskContent() {
             </button>
           </div>
 
-          <button
-            onClick={() => setActiveTab('ALL')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition btn-press ${
-              activeTab === 'ALL'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            All Stories ({counts.total})
-          </button>
-          <button
-            onClick={() => setActiveTab('PUBLISHED')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition btn-press flex items-center space-x-1.5 ${
-              activeTab === 'PUBLISHED'
-                ? 'bg-[#008F5A] text-white shadow-xs'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            <span>Published ({counts.published})</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('UNPUBLISHED')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition btn-press flex items-center space-x-1.5 ${
-              activeTab === 'UNPUBLISHED'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-            <span>Unpublished ({counts.unpublished})</span>
-          </button>
+          {/* Filter pills hidden on Unpublished as requested */}
+          {activeTab !== 'UNPUBLISHED' && (
+            <>
+              <button
+                onClick={() => setActiveTab('ALL')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition btn-press ${
+                  activeTab === 'ALL'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                All Stories ({counts.total})
+              </button>
+              <button
+                onClick={() => setActiveTab('PUBLISHED')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition btn-press flex items-center space-x-1.5 ${
+                  activeTab === 'PUBLISHED'
+                    ? 'bg-[#008F5A] text-white shadow-xs'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span>Published ({counts.published})</span>
+              </button>
+            </>
+          )}
 
           <Link
             href="/admin/articles/new"
@@ -469,7 +618,8 @@ function ArticlesDeskContent() {
                         href={art.sourceUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-3 py-1.5 bg-[#EBF5FF] hover:bg-[#D8ECFF] text-[#1877F2] text-xs font-bold rounded-xl transition btn-press flex items-center space-x-1"
+                        className="px-3 py-1.5 bg-[#EBF5FF] hover:bg-[#D8ECFF] text-[#1877F2] text-xs font-bold rounded-xl transition btn-press flex items-center space-x-1 border border-[#1877F2]/20"
+                        title="View Original Published Source"
                       >
                         <ExternalLink size={12} />
                         <span>Original Link</span>
@@ -480,6 +630,7 @@ function ArticlesDeskContent() {
                     <button
                       onClick={() => setPreviewArticle(art)}
                       className="px-3 py-1.5 bg-[#1877F2] hover:bg-[#166FE5] text-white text-xs font-bold rounded-xl transition btn-press flex items-center space-x-1 shadow-xs"
+                      title="Preview on Website"
                     >
                       <Eye size={12} />
                       <span>Website Link</span>
@@ -487,15 +638,16 @@ function ArticlesDeskContent() {
 
                     {/* Publish / Unpublish Button */}
                     <button
-                      onClick={() => handleTogglePublish(art.id, art.status)}
-                      className={`px-3.5 py-1.5 text-xs font-extrabold rounded-xl shadow-xs transition btn-press flex items-center space-x-1 ${
+                      onClick={() => handleTogglePublish(art.id, art.status, art.title)}
+                      className={`px-3.5 py-1.5 text-xs font-extrabold rounded-xl shadow-xs transition btn-press flex items-center space-x-1.5 ${
                         isPub
                           ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                          : 'bg-gradient-to-r from-[#EAB308] to-[#CA8A04] hover:from-[#CA8A04] hover:to-[#A16207] text-white'
+                          : 'bg-[#008F5A] hover:bg-[#007348] text-white shadow-sm'
                       }`}
+                      title={isPub ? 'Unpublish Story' : '1-Click Publish to Live Website'}
                     >
                       <Check size={13} />
-                      <span>{isPub ? 'Unpublish' : 'Publish'}</span>
+                      <span>{isPub ? 'Unpublish' : '✓ Publish'}</span>
                     </button>
 
                     {/* Status Pill */}
@@ -518,13 +670,14 @@ function ArticlesDeskContent() {
                       <Edit size={14} />
                     </Link>
 
-                    {/* Trash Button */}
+                    {/* Red Delete Button (Prominent Red as requested) */}
                     <button
                       onClick={() => handleTrash(art.id, art.title)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                      title="Move to Trash"
+                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 text-xs font-bold rounded-xl transition btn-press flex items-center space-x-1.5 shadow-2xs"
+                      title="Move to Trash / Delete"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={13} />
+                      <span>Delete</span>
                     </button>
                   </div>
                 </div>
@@ -641,7 +794,7 @@ function ArticlesDeskContent() {
                           </Link>
 
                           <button
-                            onClick={() => handleTogglePublish(art.id, art.status)}
+                            onClick={() => handleTogglePublish(art.id, art.status, art.title)}
                             title={isPub ? 'Unpublish to Draft' : 'Publish Live'}
                             className="p-1 text-slate-400 hover:text-amber-600 rounded-lg hover:bg-amber-50 transition"
                           >
@@ -650,10 +803,11 @@ function ArticlesDeskContent() {
 
                           <button
                             onClick={() => handleTrash(art.id, art.title)}
-                            title="Move to Trash"
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                            title="Delete Article"
+                            className="px-2 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 text-[11px] font-bold rounded-lg transition flex items-center space-x-1"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={12} />
+                            <span>Delete</span>
                           </button>
                         </div>
                       </td>
@@ -777,7 +931,7 @@ function ArticlesDeskContent() {
 
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => handleTogglePublish(previewArticle.id, previewArticle.status)}
+                  onClick={() => handleTogglePublish(previewArticle.id, previewArticle.status, previewArticle.title)}
                   className={`px-5 py-1.5 text-xs font-extrabold rounded-xl transition btn-press shadow-xs ${
                     previewArticle.status === 'PUBLISHED'
                       ? 'bg-amber-600 hover:bg-amber-700 text-white'
@@ -793,6 +947,83 @@ function ArticlesDeskContent() {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          PUBLISH / PUBLISH ALL CONFIRMATION MODAL
+         ========================================================================= */}
+      {publishConfirm && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => !isPublishing && setPublishConfirm(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#008F5A] flex-shrink-0">
+                <Check size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  {publishConfirm.mode === 'all'
+                    ? `Publish All ${articles.length} Pending Articles?`
+                    : publishConfirm.currentStatus === 'PUBLISHED'
+                    ? 'Move Article to Draft Queue?'
+                    : 'Confirm Live Publication'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {publishConfirm.mode === 'all'
+                    ? selectedCategory
+                      ? `All unpublished articles in this sector will go live immediately.`
+                      : 'All pending unpublished articles will be published live to your website.'
+                    : publishConfirm.currentStatus === 'PUBLISHED'
+                    ? 'This article will be removed from the live site and moved to Unpublished.'
+                    : 'This article will immediately appear live on your website under its category.'}
+                </p>
+              </div>
+            </div>
+
+            {publishConfirm.mode === 'single' && publishConfirm.title && (
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 line-clamp-2">
+                {publishConfirm.title}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end space-x-2 pt-2">
+              <button
+                type="button"
+                disabled={isPublishing}
+                onClick={() => setPublishConfirm(null)}
+                className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isPublishing}
+                onClick={executePublish}
+                className={`px-5 py-2 text-xs font-extrabold text-white rounded-xl transition shadow-md flex items-center space-x-1.5 disabled:opacity-60 ${
+                  publishConfirm.mode === 'single' && publishConfirm.currentStatus === 'PUBLISHED'
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : 'bg-[#008F5A] hover:bg-[#007348]'
+                }`}
+              >
+                <Check size={14} />
+                <span>
+                  {isPublishing
+                    ? 'Publishing...'
+                    : publishConfirm.mode === 'all'
+                    ? `Confirm & Publish All`
+                    : publishConfirm.currentStatus === 'PUBLISHED'
+                    ? 'Confirm Unpublish'
+                    : 'Confirm & Publish Live'}
+                </span>
+              </button>
             </div>
           </div>
         </div>

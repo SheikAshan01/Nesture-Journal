@@ -271,40 +271,20 @@ test.describe('Admin Customizations Verification (Meta Ads Style, Word WYSIWYG &
     const liveFrame = page.locator('iframe[title="Live Website Mirror Preview"]');
     await expect(liveFrame).toBeVisible();
 
-    // 4. Direct On-Canvas Interactive Mouse Drag Handles exist and are operational
-    const heightHandle = page.locator('text=Drag with mouse to resize banner height');
-    await expect(heightHandle).toBeVisible();
+    // 4. Outer overlay drag handles & top sizing toolbar are removed as requested
+    await expect(page.locator('text=Drag with mouse to resize banner height')).toHaveCount(0);
+    await expect(page.locator('text=Side Drag')).toHaveCount(0);
+    await expect(page.locator('button:has-text("Split (8-Col)")')).toHaveCount(0);
+    await expect(page.locator('button:has-text("Full Width (12-Col)")')).toHaveCount(0);
 
-    // Mouse drag vertical test
-    await heightHandle.hover();
-    await page.mouse.down();
-    await page.mouse.move(400, 500);
-    await page.mouse.up();
+    // 5. Embedded in-section border-hugging handles appear inside the live mirror iframe (?customize=1)
+    const frame = page.frameLocator('iframe[title="Live Website Mirror Preview"]');
+    await expect(frame.locator('text=Drag with mouse to resize').first()).toBeVisible({ timeout: 10000 });
+    await expect(frame.locator('text=Resize Card Height').first()).toBeVisible();
+    await expect(frame.locator('text=Resize Card Image').first()).toBeVisible();
 
-    // Side Drag handle test
-    const sideHandle = page.locator('text=Side Drag');
-    await expect(sideHandle).toBeVisible();
-
-    // 5. 2-Screen Mode Switchers (Screen 1 vs Screen 2 vs Dual Split)
-    const screen1Btn = page.locator('button:has-text("Screen 1: Big Live Canvas")');
-    const screen2Btn = page.locator('button:has-text("Screen 2: Studio Design Controls")');
-    const splitBtn = page.locator('button:has-text("Dual Split View")');
-
-    await expect(screen1Btn).toBeVisible();
-    await expect(screen2Btn).toBeVisible();
-    await expect(splitBtn).toBeVisible();
-
-    // Test Screen 1 (100% Big Screen Canvas)
-    await screen1Btn.click();
-    await expect(liveFrame).toBeVisible();
-
-    // Test Screen 2 (Dedicated Design Control Studio)
-    await screen2Btn.click();
-    await expect(page.getByText('Color Packs, Custom Palette, Categories & Preset Engine')).toBeVisible();
-
-    // Switch back to Dual Split View
-    await splitBtn.click();
-    await expect(liveFrame).toBeVisible();
+    // Verify admin sidebar is NOT present in full-screen customizer studio
+    await expect(page.locator('aside nav')).toHaveCount(0);
 
     // 6. Device viewport switchers work (Desktop, Tablet, Mobile)
     const tabletBtn = page.locator('button[title="Tablet View (768px)"]');
@@ -360,8 +340,8 @@ test.describe('Admin Customizations Verification (Meta Ads Style, Word WYSIWYG &
     await expect(confirmModal).not.toBeVisible();
 
     // Reset button triggers Reset Confirmation Modal
-    await page.click('button:has-text("Reset")');
-    const resetModal = page.locator('text=Reset to Factory Default Template?');
+    await page.locator('button[title="Reset to factory default theme"]').click();
+    const resetModal = page.locator('h3:has-text("Reset to Factory Default Template?")');
     await expect(resetModal).toBeVisible();
     await page.click('button:has-text("Cancel")');
     await expect(resetModal).not.toBeVisible();
@@ -370,7 +350,7 @@ test.describe('Admin Customizations Verification (Meta Ads Style, Word WYSIWYG &
     await page.screenshot({ path: 'public/images/admin-customizer-full-live-right-dock.png' });
 
     // Click Publish to Live Website
-    const publishBtn = page.locator('button:has-text("Publish to Live Website")');
+    const publishBtn = page.locator('button:has-text("Publish to Live Website")').first();
     await publishBtn.click();
     await expect(page.getByText('All visual and layout adjustments published live!')).toBeVisible();
 
@@ -382,5 +362,75 @@ test.describe('Admin Customizations Verification (Meta Ads Style, Word WYSIWYG &
     await expect(page.locator('header')).toBeVisible();
     await expect(page.locator('#hero-side-stories')).toBeVisible();
     await page.screenshot({ path: 'public/images/live-site-theme-applied.png' });
+  });
+
+  test('14. Outside click automatically dismisses Notification & Profile dropdowns', async ({ page }) => {
+    await page.goto('/admin');
+    await page.waitForLoadState('networkidle');
+
+    // 1. Notification Dropdown outside-click dismissal
+    const bellBtn = page.locator('button[title="System Notifications"]');
+    await bellBtn.click();
+    const alertsPopup = page.locator('text=Recent System Alerts');
+    await expect(alertsPopup).toBeVisible();
+
+    // Click outside on the main content area
+    await page.locator('main').click({ position: { x: 50, y: 150 } });
+    await expect(alertsPopup).not.toBeVisible();
+
+    // 2. Profile Avatar Dropdown outside-click dismissal
+    const profileBtn = page.locator('main header').locator('button:has-text("Director")').first();
+    await profileBtn.click();
+    const profileDropdown = page.locator('text=Sign Out Session');
+    await expect(profileDropdown).toBeVisible();
+
+    // Click outside on the main content area
+    await page.locator('main').click({ position: { x: 50, y: 150 } });
+    await expect(profileDropdown).not.toBeVisible();
+  });
+
+  test('15. Unpublished Articles: Stat cards hidden, Red Delete button, 10-Min Scraper & 1-Click Publish', async ({ page }) => {
+    // Navigate to Unpublished Articles
+    await page.goto('/admin/articles?status=UNPUBLISHED');
+    await page.waitForLoadState('networkidle');
+
+    // Stat cards (Total Repository, Published Articles, etc.) should NOT be visible
+    await expect(page.getByText('TOTAL REPOSITORY')).toHaveCount(0);
+    await expect(page.getByText('LIVE ON SITE')).toHaveCount(0);
+
+    // Dedicated Unpublished Queue header & Auto-Scraper banner should be visible
+    await expect(page.getByText('Unpublished Editorial & Worldwide News Queue')).toBeVisible();
+    await expect(page.getByText('10-Minute Auto-Scraper Active')).toBeVisible();
+
+    // Red Delete button check on unpublished card
+    const deleteBtn = page.locator('button[title="Move to Trash / Delete"]').first();
+    await expect(deleteBtn).toBeVisible();
+    await expect(deleteBtn).toHaveClass(/bg-rose-50/);
+    await expect(deleteBtn).toHaveClass(/text-rose-600/);
+
+    // Sector filter bar is present
+    await expect(page.getByText('Sector Filter:')).toBeVisible();
+
+    // Trigger Worldwide Scrape button is present and clickable
+    const scrapeBtn = page.locator('button:has-text("⚡ Scrape & Ingest Latest Worldwide News Now")');
+    await expect(scrapeBtn).toBeVisible();
+
+    // Publish All button is present
+    const publishAllBtn = page.locator('button:has-text("Publish All")');
+    await expect(publishAllBtn).toBeVisible();
+
+    // Capture screenshot of Unpublished Editorial Queue
+    await page.screenshot({ path: 'public/images/admin-unpublished-articles-queue-new.png' });
+
+    // Click Publish on an article -> Confirmation modal appears -> Confirm & Publish Live
+    const publishBtn = page.locator('button[title*="1-Click Publish to Live Website"]').first();
+    if (await publishBtn.isVisible()) {
+      await publishBtn.click();
+      await expect(page.getByText('Confirm Live Publication')).toBeVisible();
+      const confirmBtn = page.locator('button:has-text("Confirm & Publish Live")');
+      await expect(confirmBtn).toBeVisible();
+      await confirmBtn.click();
+      await page.waitForTimeout(1000);
+    }
   });
 });

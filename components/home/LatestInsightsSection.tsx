@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/components/common/ThemeProvider';
 import { getCategoryBadgeStyle } from '@/lib/theme';
+import CustomizerSectionHandles, { broadcastCustomizerResize } from '@/components/common/CustomizerSectionHandles';
 import {
   Clock,
   Bookmark,
@@ -86,6 +87,7 @@ export default function LatestInsightsSection() {
   const { theme } = useTheme();
   const [bookmarked, setBookmarked] = useState<Record<string, boolean>>({});
   const [articles, setArticles] = useState<ArticleItem[]>(LATEST_ARTICLES);
+  const dragBaseRef = useRef({ imgHeight: 180, marketHeight: 404 });
 
   useEffect(() => {
     fetch('/api/articles?status=PUBLISHED&limit=6', { cache: 'no-store' })
@@ -124,6 +126,15 @@ export default function LatestInsightsSection() {
   }
 
   const showMarketIntelligence = theme?.sections?.marketIntelligence !== false;
+  const cols = theme?.insightsCardColumns || '2';
+  const imgHeightNum = parseInt(theme?.insightsCardImageHeight || '180px', 10) || 180;
+  const marketHeightNum = parseInt(theme?.marketWidgetHeight || '404px', 10) || 404;
+  const colClass =
+    cols === '1'
+      ? 'grid-cols-1'
+      : cols === '3'
+      ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+      : 'grid-cols-1 sm:grid-cols-2';
 
   return (
     <section className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8">
@@ -147,8 +158,32 @@ export default function LatestInsightsSection() {
 
       {/* Main Grid: Articles on Left (60%), Market Intelligence on Right (40%) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
-        {/* Left: 4 Article Cards in 2x2 grid (7 Cols or 12 Cols if Market Intelligence hidden) */}
-        <div className={`${showMarketIntelligence ? 'lg:col-span-7' : 'lg:col-span-12'} grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5`}>
+        {/* Left: Article Cards Grid (7 Cols or 12 Cols if Market Intelligence hidden) */}
+        <div
+          className={`${showMarketIntelligence ? 'lg:col-span-7' : 'lg:col-span-12'} grid ${colClass} gap-4 sm:gap-5 relative rounded-2xl`}
+        >
+          <CustomizerSectionHandles
+            badgeText={`Insights: ${cols}-Cols × ${imgHeightNum}px`}
+            bottomLabel={`Resize Card Image (${imgHeightNum}px)`}
+            sideLabel={`${cols}-Cols`}
+            onDragStart={() => {
+              dragBaseRef.current.imgHeight = imgHeightNum;
+            }}
+            onVerticalDrag={(deltaY) => {
+              const nextH = Math.max(120, Math.min(280, dragBaseRef.current.imgHeight + Math.round(deltaY / 2)));
+              broadcastCustomizerResize({ insightsCardImageHeight: `${nextH}px` });
+            }}
+            onHorizontalDrag={(deltaX) => {
+              const nextCols = deltaX > 40 ? '3' : deltaX < -40 ? '1' : '2';
+              if (nextCols !== cols) {
+                broadcastCustomizerResize({ insightsCardColumns: nextCols });
+              }
+            }}
+            onHorizontalClick={() => {
+              const nextCols = cols === '1' ? '2' : cols === '2' ? '3' : '1';
+              broadcastCustomizerResize({ insightsCardColumns: nextCols });
+            }}
+          />
           {articles.map((article) => (
             <article
               key={article.id}
@@ -157,7 +192,10 @@ export default function LatestInsightsSection() {
             >
               <div>
                 {/* Image */}
-                <div className="aspect-[16/10] bg-gray-100 overflow-hidden relative">
+                <div
+                  style={{ height: `${imgHeightNum}px` }}
+                  className="bg-gray-100 overflow-hidden relative"
+                >
                   <img
                     src={article.image}
                     alt={article.title}
@@ -220,8 +258,19 @@ export default function LatestInsightsSection() {
           style={{
             minHeight: theme?.marketWidgetHeight || '404px',
           }}
-          className="lg:col-span-5 flex flex-col h-fit self-start"
+          className="lg:col-span-5 flex flex-col h-fit self-start relative rounded-xl"
         >
+          <CustomizerSectionHandles
+            badgeText={`Market Widget: ${marketHeightNum}px`}
+            bottomLabel={`Resize Market Widget (${marketHeightNum}px)`}
+            onDragStart={() => {
+              dragBaseRef.current.marketHeight = marketHeightNum;
+            }}
+            onVerticalDrag={(deltaY) => {
+              const nextH = Math.max(320, Math.min(560, dragBaseRef.current.marketHeight + deltaY));
+              broadcastCustomizerResize({ marketWidgetHeight: `${nextH}px` });
+            }}
+          />
           {/* Header pill */}
           <div className="bg-[#006B45] text-white p-3 sm:p-3.5 rounded-t-xl flex items-center space-x-2.5 shadow-sm">
             <TrendingUp size={18} className="text-emerald-light flex-shrink-0" />

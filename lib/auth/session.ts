@@ -82,11 +82,11 @@ export async function createSession(userId: string, reqHeaders?: { ip?: string; 
     },
   });
 
-  // Set HTTP-only cookie
+  // Set HTTP-only cookie (only mark secure on HTTPS / Vercel so local http://localhost:3000 works)
   const cookieStore = cookies();
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.VERCEL === '1' || process.env.HTTPS === 'true',
     sameSite: 'lax',
     path: '/',
     expires: expiresAt,

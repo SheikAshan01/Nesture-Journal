@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/components/common/ThemeProvider';
 import { getCategoryBadgeStyle } from '@/lib/theme';
+import CustomizerSectionHandles, { broadcastCustomizerResize } from '@/components/common/CustomizerSectionHandles';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -104,6 +105,7 @@ export default function HeroSection() {
   const [slides, setSlides] = useState<HeroStory[]>(DEFAULT_SLIDES);
   const [cards, setCards] = useState(DEFAULT_RIGHT_CARDS);
   const [isPaused, setIsPaused] = useState(false);
+  const dragBaseRef = useRef({ heroHeight: 460, sideHeight: 85, thumbWidth: 96 });
 
   useEffect(() => {
     fetch('/api/articles?status=PUBLISHED&limit=20', { cache: 'no-store' })
@@ -218,19 +220,48 @@ export default function HeroSection() {
 
   const isFullWidth = theme?.heroWidth === 'full';
   const bannerMinHeight = theme?.heroHeight || '460px';
+  const bannerHeightNum = parseInt(bannerMinHeight, 10) || 460;
+  const sideCardHeightNum = parseInt(theme?.sideCardHeight || '85px', 10) || 85;
+  const sideThumbWidthNum = parseInt(theme?.sideCardThumbnailWidth || '96px', 10) || 96;
 
   return (
     <section className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 py-3">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5">
         {/* Left Hero Big Banner Card - Dynamic 8-Col or 12-Col Full Width with Auto-Reflow */}
         <div
-          onMouseEnter={() => setIsPaused(true)}
-          onMouseLeave={() => setIsPaused(false)}
-          style={{ minHeight: bannerMinHeight }}
+          style={{ height: bannerMinHeight, borderRadius: theme?.borderRadius || '14px' }}
           className={`${
             isFullWidth ? 'lg:col-span-12' : 'lg:col-span-8'
-          } bg-navy-900 rounded-2xl overflow-hidden relative shadow-xl min-h-[360px] xs:min-h-[390px] sm:min-h-[430px] flex flex-col justify-end group cursor-pointer transition-all duration-300`}
+          } relative`}
         >
+          <CustomizerSectionHandles
+            badgeText={`Banner: ${bannerHeightNum}px × ${isFullWidth ? '12-Cols' : '8-Cols'}`}
+            bottomLabel={`Drag with mouse to resize (${bannerHeightNum}px)`}
+            sideLabel={isFullWidth ? '12-Col' : '8-Col'}
+            onDragStart={() => {
+              dragBaseRef.current.heroHeight = bannerHeightNum;
+            }}
+            onVerticalDrag={(deltaY) => {
+              const nextH = Math.max(280, Math.min(650, dragBaseRef.current.heroHeight + deltaY));
+              broadcastCustomizerResize({ heroHeight: `${nextH}px` });
+            }}
+            onHorizontalDrag={(deltaX) => {
+              if (deltaX > 25 && !isFullWidth) {
+                broadcastCustomizerResize({ heroWidth: 'full' });
+              } else if (deltaX < -25 && isFullWidth) {
+                broadcastCustomizerResize({ heroWidth: 'split' });
+              }
+            }}
+            onHorizontalClick={() => {
+              broadcastCustomizerResize({ heroWidth: isFullWidth ? 'split' : 'full' });
+            }}
+          />
+          <div
+            onMouseEnter={() => setIsPaused(true)}
+            onMouseLeave={() => setIsPaused(false)}
+            style={{ height: bannerMinHeight, borderRadius: theme?.borderRadius || '14px' }}
+            className="w-full h-full bg-navy-900 rounded-2xl overflow-hidden relative shadow-xl flex flex-col justify-end group cursor-pointer"
+          >
           {/* Background image with cross-fade animation and deep gradient */}
           <div className="absolute inset-0 z-0">
             <img
@@ -328,16 +359,34 @@ export default function HeroSection() {
             </div>
           </div>
         </div>
+        </div>
 
         {/* Right Stacked Stories (4 Cols / or 12-Cols 3-Card Row when Full Width) */}
         <div
           id="hero-side-stories"
-          className={
+          className={`relative rounded-2xl ${
             isFullWidth
               ? 'lg:col-span-12 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4'
               : 'lg:col-span-4 flex flex-col justify-between space-y-3 sm:space-y-4'
-          }
+          }`}
         >
+          <CustomizerSectionHandles
+            badgeText={`Side Cards: ${sideCardHeightNum}px × ${sideThumbWidthNum}px`}
+            bottomLabel={`Resize Card Height (${sideCardHeightNum}px)`}
+            sideLabel={`Thumb ${sideThumbWidthNum}px`}
+            onDragStart={() => {
+              dragBaseRef.current.sideHeight = sideCardHeightNum;
+              dragBaseRef.current.thumbWidth = sideThumbWidthNum;
+            }}
+            onVerticalDrag={(deltaY) => {
+              const nextH = Math.max(60, Math.min(140, dragBaseRef.current.sideHeight + Math.round(deltaY / 2)));
+              broadcastCustomizerResize({ sideCardHeight: `${nextH}px` });
+            }}
+            onHorizontalDrag={(deltaX) => {
+              const nextW = Math.max(64, Math.min(150, dragBaseRef.current.thumbWidth + Math.round(deltaX / 2)));
+              broadcastCustomizerResize({ sideCardThumbnailWidth: `${nextW}px` });
+            }}
+          />
           {cards.map((card, idx) => (
             <Link
               key={idx}
@@ -349,7 +398,10 @@ export default function HeroSection() {
               className="group bg-white border border-editorialBorder hover:border-emerald-brand hover:ring-2 hover:ring-emerald-500/20 p-2.5 sm:p-3.5 shadow-sm hover:shadow-md transition-all duration-300 flex items-center space-x-3 sm:space-x-3.5 min-w-0 card-hover-modern"
             >
               {/* Thumbnail */}
-              <div className="w-20 h-16 xs:w-24 xs:h-20 sm:w-28 sm:h-22 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 relative">
+              <div
+                style={{ width: `${sideThumbWidthNum}px` }}
+                className="h-16 xs:h-20 sm:h-22 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 relative"
+              >
                 <img
                   src={card.image}
                   alt={card.title}

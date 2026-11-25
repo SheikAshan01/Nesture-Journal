@@ -126,9 +126,10 @@ export default function ThemeProvider({
     try {
       bc = new BroadcastChannel('nesture_theme_channel');
       bc.onmessage = (event) => {
-        if (event.data) {
-          setTheme(event.data);
-          applyThemeToDOM(event.data);
+        const nextTheme = event.data?.theme || event.data;
+        if (nextTheme && typeof nextTheme === 'object' && nextTheme.primaryColor) {
+          setTheme((prev) => ({ ...prev, ...nextTheme }));
+          applyThemeToDOM(nextTheme);
         }
       };
     } catch {}
