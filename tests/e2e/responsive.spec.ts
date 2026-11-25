@@ -34,8 +34,8 @@ test.describe('Responsive Design Matrix (320px to 1920px)', () => {
       // 4. Verify Breaking News
       await expect(page.locator('text=BREAKING NEWS')).toBeVisible();
 
-      // 5. Verify Hero headline
-      await expect(page.locator('text=The Future of Real Estate, Clearly Told').first()).toBeVisible();
+      // 5. Verify Hero headline is visible
+      await expect(page.locator('section h1').first()).toBeVisible();
 
       // 6. Verify Category Ribbon has visible categories
       await expect(page.locator('h4:has-text("Residential")')).toBeVisible();

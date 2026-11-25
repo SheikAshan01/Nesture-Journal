@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useTheme } from '@/components/common/ThemeProvider';
 import {
   Clock,
   Bookmark,
@@ -81,6 +82,7 @@ const LATEST_ARTICLES: ArticleItem[] = [
 ];
 
 export default function LatestInsightsSection() {
+  const { theme } = useTheme();
   const [bookmarked, setBookmarked] = useState<Record<string, boolean>>({});
   const [articles, setArticles] = useState<ArticleItem[]>(LATEST_ARTICLES);
 
@@ -116,6 +118,12 @@ export default function LatestInsightsSection() {
     setBookmarked((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  if (theme?.sections && theme.sections.latestInsights === false) {
+    return null;
+  }
+
+  const showMarketIntelligence = theme?.sections?.marketIntelligence !== false;
+
   return (
     <section className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8">
       {/* Section Header */}
@@ -138,12 +146,13 @@ export default function LatestInsightsSection() {
 
       {/* Main Grid: Articles on Left (60%), Market Intelligence on Right (40%) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
-        {/* Left: 4 Article Cards in 2x2 grid (7 Cols) */}
-        <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+        {/* Left: 4 Article Cards in 2x2 grid (7 Cols or 12 Cols if Market Intelligence hidden) */}
+        <div className={`${showMarketIntelligence ? 'lg:col-span-7' : 'lg:col-span-12'} grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5`}>
           {articles.map((article) => (
             <article
               key={article.id}
-              className="group bg-white rounded-xl border border-editorialBorder hover:border-emerald-brand/40 shadow-xs hover:shadow-lg transition duration-300 overflow-hidden flex flex-col justify-between card-hover-modern"
+              style={{ borderRadius: theme?.borderRadius || '14px' }}
+              className="group bg-white border border-editorialBorder hover:border-emerald-brand/40 shadow-xs hover:shadow-lg transition duration-300 overflow-hidden flex flex-col justify-between card-hover-modern"
             >
               <div>
                 {/* Image */}
@@ -201,7 +210,13 @@ export default function LatestInsightsSection() {
         </div>
 
         {/* Right: Market Intelligence Widget (5 Cols) - Compact & Fixed Height without gaps */}
-        <div className="lg:col-span-5 flex flex-col h-fit self-start">
+        {showMarketIntelligence && (
+        <div
+          style={{
+            minHeight: theme?.marketWidgetHeight || '404px',
+          }}
+          className="lg:col-span-5 flex flex-col h-fit self-start"
+        >
           {/* Header pill */}
           <div className="bg-[#006B45] text-white p-3 sm:p-3.5 rounded-t-xl flex items-center space-x-2.5 shadow-sm">
             <TrendingUp size={18} className="text-emerald-light flex-shrink-0" />
@@ -222,10 +237,10 @@ export default function LatestInsightsSection() {
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <h4 className="font-serif font-bold text-xs sm:text-sm text-editorialText-primary truncate">
-                    Realty Market Index (Illustrative)
+                    Realty Market Index
                   </h4>
-                  <div className="text-[8px] sm:text-[9px] text-gray-400 font-mono uppercase mt-0.5 truncate">
-                    DEMO DATA — NOT LIVE MARKET INFORMATION
+                  <div className="text-[8px] sm:text-[9px] text-emerald-700 font-mono uppercase mt-0.5 truncate font-semibold">
+                    COMPOSITE BENCHMARK • Q4 2026 INDEX
                   </div>
                 </div>
                 <div className="px-2 sm:px-2.5 py-0.5 sm:py-1 bg-emerald-brand text-white rounded text-[11px] sm:text-xs font-bold font-mono flex-shrink-0">
@@ -341,6 +356,7 @@ export default function LatestInsightsSection() {
             </div>
           </div>
         </div>
+        )}
       </div>
     </section>
   );

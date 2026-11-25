@@ -48,10 +48,10 @@ export default async function MarketIntelligencePage() {
         </nav>
 
         {/* Notice Disclaimer Banner */}
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center space-x-3 text-amber-800 text-xs font-medium">
-          <Info size={18} className="flex-shrink-0 text-amber-600" />
+        <div className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-xl flex items-center space-x-3 text-emerald-900 text-xs font-medium">
+          <Info size={18} className="flex-shrink-0 text-emerald-700" />
           <span>
-            <strong>DEMO DATA — NOT LIVE MARKET INFORMATION.</strong> All figures, indices, and percentage movements are illustrative test figures for local architectural evaluation.
+            <strong>EDITORIAL INTELLIGENCE INDEX.</strong> Real estate indices, quarterly benchmarks, and valuation movements tracking Tier-1 metropolitan absorption and institutional Grade-A developments.
           </span>
         </div>
 

@@ -26,6 +26,9 @@ import {
   Layers,
   Shield,
   Plus,
+  Palette,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -42,6 +45,12 @@ function SidebarNavList({ pathname, onNavigate }: { pathname: string; onNavigate
       href: '/admin',
       icon: Home,
       isActive: pathname === '/admin',
+    },
+    {
+      label: 'Visual Customizer',
+      href: '/admin/customize',
+      icon: Palette,
+      isActive: pathname === '/admin/customize',
     },
     {
       label: 'Add Article',
@@ -68,12 +77,6 @@ function SidebarNavList({ pathname, onNavigate }: { pathname: string; onNavigate
       isActive: pathname === '/admin/articles/deleted',
     },
     {
-      label: 'Users List',
-      href: '/admin/users',
-      icon: Users,
-      isActive: pathname === '/admin/users',
-    },
-    {
       label: 'Navbar Settings',
       href: '/admin/settings/navbar',
       icon: Settings,
@@ -96,6 +99,12 @@ function SidebarNavList({ pathname, onNavigate }: { pathname: string; onNavigate
       href: '/admin/sources',
       icon: Globe,
       isActive: pathname === '/admin/sources',
+    },
+    {
+      label: 'Profile & Settings',
+      href: '/admin/settings',
+      icon: Settings,
+      isActive: pathname === '/admin/settings',
     },
   ];
 
@@ -133,13 +142,13 @@ function SidebarNavList({ pathname, onNavigate }: { pathname: string; onNavigate
   );
 }
 
-let globalAdminUser: { name: string; email: string; role: string } | null = null;
+let globalAdminUser: { name: string; email: string; role: string; avatar?: string } | null = null;
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(() => {
+  const [user, setUser] = useState<{ name: string; email: string; role: string; avatar?: string } | null>(() => {
     if (globalAdminUser) return globalAdminUser;
     if (typeof window !== 'undefined') {
       try {
@@ -156,6 +165,26 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem('nesture_admin_sidebar_open');
+      if (stored !== null) {
+        setSidebarOpen(stored === 'true');
+      }
+    } catch {}
+  }, []);
+
+  const toggleSidebar = () => {
+    setSidebarOpen((prev) => {
+      const next = !prev;
+      try {
+        sessionStorage.setItem('nesture_admin_sidebar_open', String(next));
+      } catch {}
+      return next;
+    });
+  };
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
   // If user already authenticated in memory or session, NEVER flash loading screen
@@ -249,14 +278,16 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </button>
       </header>
 
-      {/* Modern Next-Gen Sidebar - Fixed & Never Scrolls With Content */}
+      {/* Modern Next-Gen Sidebar - Fixed, Collapsible with Smooth Auto-Adjust */}
       <aside
         className={`${
           mobileMenuOpen ? 'block' : 'hidden'
-        } md:flex flex-col w-full md:w-64 md:h-screen md:sticky md:top-0 md:overflow-hidden bg-gradient-to-b from-[#0B1528] via-[#091122] to-[#060D1A] text-slate-200 border-r border-[#15233C] flex-shrink-0 z-30 transition-all duration-300`}
+        } md:flex flex-col ${
+          sidebarOpen ? 'md:w-64' : 'md:w-0 md:opacity-0 md:border-r-0 md:pointer-events-none md:overflow-hidden'
+        } md:h-screen md:sticky md:top-0 md:overflow-hidden bg-gradient-to-b from-[#0B1528] via-[#091122] to-[#060D1A] text-slate-200 border-r border-[#15233C] flex-shrink-0 z-30 transition-all duration-300 ease-in-out`}
       >
         {/* Brand Header */}
-        <div className="px-6 py-6 border-b border-[#15233C] hidden md:flex items-center justify-between flex-shrink-0">
+        <div className="px-5 py-5 border-b border-[#15233C] hidden md:flex items-center justify-between flex-shrink-0">
           <Link href="/admin" className="flex items-baseline space-x-1 group">
             <span className="font-sans font-extrabold text-2xl tracking-tight text-white transition-transform group-hover:scale-105">
               Nesture
@@ -265,9 +296,18 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               Journal
             </span>
           </Link>
-          <span className="text-[10px] font-mono font-bold text-[#38BDF8] bg-[#38BDF8]/10 px-2 py-0.5 rounded-full border border-[#38BDF8]/30">
-            PRO
-          </span>
+          <div className="flex items-center space-x-1.5">
+            <span className="text-[10px] font-mono font-bold text-[#38BDF8] bg-[#38BDF8]/10 px-2 py-0.5 rounded-full border border-[#38BDF8]/30">
+              PRO
+            </span>
+            <button
+              onClick={toggleSidebar}
+              title="Close Side Navigation"
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition btn-press"
+            >
+              <PanelLeftClose size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Live System Status Indicator (Replaced the clunky user pill as requested) */}
@@ -290,17 +330,21 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         {/* Bottom Profile & Session Card */}
         <div className="p-4 border-t border-[#15233C] bg-[#070E1B] flex-shrink-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2.5 min-w-0">
+            <Link
+              href="/admin/settings"
+              title="Edit Profile & Account Settings"
+              className="flex items-center space-x-2.5 min-w-0 hover:opacity-85 transition group"
+            >
               <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&h=120&q=80"
+                src={user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&h=120&q=80"}
                 alt=""
-                className="w-8 h-8 rounded-full object-cover border border-[#38BDF8]/40 ring-2 ring-[#38BDF8]/10"
+                className="w-8 h-8 rounded-full object-cover border border-[#38BDF8]/40 ring-2 ring-[#38BDF8]/10 group-hover:ring-[#38BDF8]/40 transition"
               />
               <div className="min-w-0">
-                <div className="text-xs font-bold text-white truncate">{user?.name || 'admin'}</div>
+                <div className="text-xs font-bold text-white truncate group-hover:text-[#38BDF8] transition">{user?.name || 'admin'}</div>
                 <div className="text-[10px] text-[#38BDF8] font-mono font-medium truncate uppercase">{user?.role || 'SUPER_ADMIN'}</div>
               </div>
-            </div>
+            </Link>
             <button
               onClick={handleLogout}
               title="Sign Out Session"
@@ -312,17 +356,30 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </div>
       </aside>
 
-      {/* Main Content Area - Only This Area Scrolls */}
-      <main className="flex-1 flex flex-col min-w-0 md:h-screen md:overflow-y-auto bg-[#F8FAFC]">
+      {/* Main Content Area - Auto-Adjusts Width Smoothly When Sidebar Opens/Closes */}
+      <main className="flex-1 flex flex-col min-w-0 md:h-screen md:overflow-y-auto bg-[#F8FAFC] transition-all duration-300 ease-in-out">
         {/* Next-Gen Glassmorphic Top Header Bar */}
         <header className="glass-header border-b border-slate-200/80 px-4 sm:px-8 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-xs transition-all">
-          {/* Breadcrumb Context */}
-          <div className="flex items-center space-x-2 text-xs text-slate-500">
-            <span className="font-extrabold text-slate-900">Nesture Journal Admin</span>
-            <span className="text-slate-300">/</span>
-            <span className="text-slate-600 font-semibold capitalize">
-              {pathname === '/admin' ? 'Dashboard' : pathname.replace('/admin/', '').replace('/', ' / ')}
-            </span>
+          {/* Breadcrumb Context with Sidebar Toggle Button */}
+          <div className="flex items-center space-x-3">
+            {!sidebarOpen && (
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                title="Expand Side Navigation"
+                className="hidden md:inline-flex items-center justify-center p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition btn-press border border-slate-200 shadow-2xs group"
+              >
+                <PanelLeftOpen size={18} className="text-[#0284C7] group-hover:scale-110 transition-transform" />
+              </button>
+            )}
+
+            <div className="flex items-center space-x-2 text-xs text-slate-500">
+              <span className="font-extrabold text-slate-900">Nesture Journal Admin</span>
+              <span className="text-slate-300">/</span>
+              <span className="text-slate-600 font-semibold capitalize">
+                {pathname === '/admin' ? 'Dashboard' : pathname.replace('/admin/', '').replace('/', ' / ')}
+              </span>
+            </div>
           </div>
 
           {/* Right Controls */}
@@ -417,11 +474,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     <div className="text-[11px] text-slate-500 truncate">{user?.email}</div>
                   </div>
                   <Link
-                    href="/admin/users"
+                    href="/admin/settings"
                     onClick={() => setUserDropdownOpen(false)}
                     className="block px-4 py-2 text-slate-700 hover:bg-slate-50 font-medium transition"
                   >
-                    User Management
+                    Profile & Settings
                   </Link>
                   <Link
                     href="/admin/sources"
@@ -449,8 +506,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </div>
         </header>
 
-        {/* Content canvas with entrance animation */}
-        <div className="p-4 sm:p-6 md:p-8 max-w-7xl w-full mx-auto animate-fade-in-up">
+        {/* Content canvas with entrance animation - Expands comfortably without awkward margins */}
+        <div className="p-4 sm:p-6 md:p-8 max-w-[1600px] w-full mx-auto animate-fade-in-up">
           {children}
         </div>
       </main>

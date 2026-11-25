@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useTheme } from '@/components/common/ThemeProvider';
 import {
   Layers,
   ArrowRight,
@@ -43,6 +44,7 @@ const SECTOR_TABS = [
 ];
 
 export default function SectorSpotlight() {
+  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState('all');
   const [articles, setArticles] = useState<ArticleItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +68,10 @@ export default function SectorSpotlight() {
 
   const displayArticles = filtered.slice(0, 6);
   const sideHighlights = articles.filter((a) => a.isTrending || a.isBreaking).slice(0, 4);
+
+  if (theme?.sections && theme.sections.sectorSpotlight === false) {
+    return null;
+  }
 
   return (
     <section className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 py-8 border-t border-editorialBorder/80">

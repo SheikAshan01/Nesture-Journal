@@ -14,6 +14,7 @@ model User {
   name         String
   roleId       String
   role         Role       @relation(fields: [roleId], references: [id])
+  avatar       String?
   isActive     Boolean    @default(true)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -322,6 +323,7 @@ model SiteSettings {
   footerText          String?  @db.Text
   breakingNewsEnabled Boolean  @default(true)
   realtyStocksEnabled Boolean  @default(true)
+  themeConfig         String?  @db.Text
   updatedAt           DateTime @updatedAt
 }
 

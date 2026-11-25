@@ -11,15 +11,15 @@ const config: Config = {
       colors: {
         navy: {
           950: "#040e17",
-          900: "#071B2B", // Primary Navy from design reference
-          800: "#102B3D", // Secondary Navy
+          900: "var(--primary-navy, #071B2B)", // Primary Navy from design reference / live theme
+          800: "var(--secondary-navy, #102B3D)", // Secondary Navy
           700: "#183B54",
         },
         emerald: {
-          brand: "#008F5A", // Emerald Green from design reference
-          hover: "#007A4D",
-          deep: "#006B45",
-          light: "#E8F5F0",
+          brand: "var(--emerald-brand, #008F5A)", // Primary Brand Color from design / live theme
+          hover: "var(--emerald-hover, #007A4D)",
+          deep: "var(--deep-green, #006B45)",
+          light: "var(--emerald-light, #E8F5F0)",
         },
         softBg: "#F5F7F6",
         editorialBorder: "#E4E9E7",

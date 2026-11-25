@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import ThemeProvider from '@/components/common/ThemeProvider';
 
 export const viewport: Viewport = {
   themeColor: '#071B2B',
@@ -77,6 +78,35 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var raw = localStorage.getItem('nesture_theme');
+                  if (raw) {
+                    var t = JSON.parse(raw);
+                    var r = document.documentElement;
+                    if (t.primaryColor) r.style.setProperty('--emerald-brand', t.primaryColor);
+                    if (t.secondaryColor) {
+                      r.style.setProperty('--emerald-hover', t.secondaryColor);
+                      r.style.setProperty('--deep-green', t.secondaryColor);
+                    }
+                    if (t.navyColor) {
+                      r.style.setProperty('--primary-navy', t.navyColor);
+                      r.style.setProperty('--secondary-navy', t.navyColor);
+                    }
+                    if (t.borderRadius) r.style.setProperty('--card-radius', t.borderRadius);
+                    if (t.heroHeight) r.style.setProperty('--hero-height', t.heroHeight);
+                    if (t.backgroundColor) {
+                      r.style.setProperty('--bg-page', t.backgroundColor);
+                    }
+                  }
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
+        <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdOrg) }}
         />
@@ -86,7 +116,9 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen flex flex-col bg-white text-editorialText-primary">
-        {children}
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

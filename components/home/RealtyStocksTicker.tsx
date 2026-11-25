@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { TrendingUp, ArrowRight, Activity } from 'lucide-react';
+import { useTheme } from '@/components/common/ThemeProvider';
 
 interface StockQuote {
   symbol: string;
@@ -24,6 +25,7 @@ const DEFAULT_STOCKS: StockQuote[] = [
 ];
 
 export default function RealtyStocksTicker() {
+  const { theme } = useTheme();
   const [stocks, setStocks] = useState<StockQuote[]>(DEFAULT_STOCKS);
 
   useEffect(() => {
@@ -51,6 +53,10 @@ export default function RealtyStocksTicker() {
 
   // Double the array to provide an uninterrupted continuous CSS marquee loop
   const marqueeStocks = [...stocks, ...stocks];
+
+  if (theme?.sections && theme.sections.ticker === false) {
+    return null;
+  }
 
   return (
     <div className="bg-[#FAFBFB] border-b border-editorialBorder py-2.5 px-3 sm:px-6 lg:px-8 text-xs relative overflow-hidden select-none">
@@ -104,8 +110,9 @@ export default function RealtyStocksTicker() {
 
         {/* Pinned Right CTA with Gradient Mask */}
         <div className="z-10 bg-[#FAFBFB] pl-3 flex items-center space-x-2.5 flex-shrink-0 shadow-[-4px_0_8px_-2px_rgba(250,251,251,1)]">
-          <span className="hidden lg:inline-block text-[9px] text-gray-500 font-mono uppercase bg-gray-100 px-2 py-0.5 rounded border border-gray-200 font-semibold">
-            DEMO DATA
+          <span className="hidden lg:inline-flex items-center space-x-1 text-[9px] text-emerald-700 font-mono uppercase bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>NSE/BSE LIVE</span>
           </span>
           <Link
             href="/realty-stocks"

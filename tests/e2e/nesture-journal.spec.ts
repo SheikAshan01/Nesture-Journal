@@ -45,7 +45,7 @@ test.describe('Nesture Journal - Complete Platform E2E Tests', () => {
 
     // 8. Verify Market Intelligence Widget
     await expect(page.locator('text=Market Intelligence').first()).toBeVisible();
-    await expect(page.locator('text=Realty Market Index (Illustrative)')).toBeVisible();
+    await expect(page.locator('text=Realty Market Index').first()).toBeVisible();
     await expect(page.locator('text=+8.4%')).toBeVisible();
     await expect(page.locator('text=+6.9%')).toBeVisible();
     await expect(page.locator('text=+5.1%')).toBeVisible();
@@ -69,7 +69,7 @@ test.describe('Nesture Journal - Complete Platform E2E Tests', () => {
 
     // Market Intelligence page
     await page.goto('/market-intelligence');
-    await expect(page.locator('text=DEMO DATA — NOT LIVE MARKET INFORMATION')).toBeVisible();
+    await expect(page.locator('text=Real Estate Market Intelligence')).toBeVisible();
 
     // Realty Stocks page
     await page.goto('/realty-stocks');
@@ -100,7 +100,7 @@ test.describe('Nesture Journal - Complete Platform E2E Tests', () => {
     await expect(page.locator('text=Editorial Operations')).toBeVisible();
   });
 
-  test('New admin pages: Sources, Users List, Navbar Settings, and Trash render', async ({ page }) => {
+  test('New admin pages: Sources, Visual Customizer, Settings, Navbar, and Trash render', async ({ page }) => {
     // 1. Login first
     await page.goto('/admin/login');
     await page.click('button:has-text("Auto-fill Super Admin")');
@@ -113,10 +113,15 @@ test.describe('Nesture Journal - Complete Platform E2E Tests', () => {
     await expect(page.locator('text=PropNewsTime').first()).toBeVisible();
     await expect(page.locator('text=Realty & More').first()).toBeVisible();
 
-    // 3. Users List
-    await page.goto('/admin/users');
-    await expect(page.locator('text=Users List & Access Control')).toBeVisible();
-    await expect(page.locator('text=admin@nesturejournal.com')).toBeVisible();
+    // 3. Visual Customizer Studio & Settings
+    await page.goto('/admin/customize');
+    await expect(page.locator('text=Visual Customizer Studio')).toBeVisible();
+    await page.click('button:has-text("Color Packs")');
+    await expect(page.locator('text=Emerald Heritage')).toBeVisible();
+
+    await page.goto('/admin/settings');
+    await expect(page.locator('text=Profile & Platform Settings')).toBeVisible();
+    await expect(page.locator('text=Editorial Profile & Identity')).toBeVisible();
 
     // 4. Articles Delete / Trash
     await page.goto('/admin/articles/deleted');

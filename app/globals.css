@@ -6,11 +6,63 @@
   --primary-navy: #071B2B;
   --secondary-navy: #102B3D;
   --emerald-brand: #008F5A;
+  --emerald-hover: #007A4D;
   --deep-green: #006B45;
+  --emerald-light: #E8F5F0;
+  --accent-color: #059669;
   --soft-background: #F5F7F6;
   --text-primary: #14202A;
   --text-secondary: #66717A;
   --border-color: #E4E9E7;
+  --bg-page: #FFFFFF;
+}
+
+/* ==========================================================================
+   DYNAMIC LIVE THEME INJECTION OVERRIDES
+   Ensures custom color packs immediately update all buttons, headers, links
+   ========================================================================== */
+.bg-emerald-brand,
+.bg-emerald-600,
+.bg-emerald-700,
+[class*="bg-[#008F5A]"],
+[class*="bg-[#006B45]"] {
+  background-color: var(--emerald-brand, #008F5A) !important;
+}
+
+.hover\:bg-emerald-deep:hover,
+.hover\:bg-emerald-hover:hover,
+.hover\:bg-emerald-700:hover,
+[class*="hover:bg-[#006B45]"]:hover,
+[class*="hover:bg-[#007A4D]"]:hover {
+  background-color: var(--deep-green, #006B45) !important;
+}
+
+.text-emerald-brand,
+.text-emerald-deep,
+.text-emerald-600,
+.text-emerald-700,
+[class*="text-[#008F5A]"],
+[class*="text-[#006B45]"] {
+  color: var(--emerald-brand, #008F5A) !important;
+}
+
+.border-emerald-brand,
+.border-emerald-600,
+.border-emerald-700,
+[class*="border-[#008F5A]"],
+[class*="border-[#006B45]"] {
+  border-color: var(--emerald-brand, #008F5A) !important;
+}
+
+.bg-navy-900,
+[class*="bg-[#071B2B]"],
+[class*="bg-[#0A1628]"] {
+  background-color: var(--primary-navy, #071B2B) !important;
+}
+
+.border-navy-800,
+[class*="border-[#102B3D]"] {
+  border-color: var(--secondary-navy, #102B3D) !important;
 }
 
 /* Prevent horizontal scroll blowout across all screens (320px to 1920px) */

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useTheme } from '@/components/common/ThemeProvider';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -97,6 +98,7 @@ const DEFAULT_RIGHT_CARDS = [
 ];
 
 export default function HeroSection() {
+  const { theme } = useTheme();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slides, setSlides] = useState<HeroStory[]>(DEFAULT_SLIDES);
   const [cards, setCards] = useState(DEFAULT_RIGHT_CARDS);
@@ -209,14 +211,24 @@ export default function HeroSection() {
     setCurrentSlide((prev) => (prev + 1) % slides.length);
   };
 
+  if (theme?.sections && theme.sections.hero === false) {
+    return null;
+  }
+
+  const isFullWidth = theme?.heroWidth === 'full';
+  const bannerMinHeight = theme?.heroHeight || '460px';
+
   return (
     <section className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 py-3">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5">
-        {/* Left Hero Big Banner Card (8 Cols / approx 65%) with Smooth Auto-Slide Animation */}
+        {/* Left Hero Big Banner Card - Dynamic 8-Col or 12-Col Full Width with Auto-Reflow */}
         <div
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
-          className="lg:col-span-8 bg-navy-900 rounded-2xl overflow-hidden relative shadow-xl min-h-[360px] xs:min-h-[390px] sm:min-h-[430px] lg:min-h-[460px] flex flex-col justify-end group cursor-pointer transition-all duration-300"
+          style={{ minHeight: bannerMinHeight }}
+          className={`${
+            isFullWidth ? 'lg:col-span-12' : 'lg:col-span-8'
+          } bg-navy-900 rounded-2xl overflow-hidden relative shadow-xl min-h-[360px] xs:min-h-[390px] sm:min-h-[430px] flex flex-col justify-end group cursor-pointer transition-all duration-300`}
         >
           {/* Background image with cross-fade animation and deep gradient */}
           <div className="absolute inset-0 z-0">
@@ -316,13 +328,24 @@ export default function HeroSection() {
           </div>
         </div>
 
-        {/* Right Stacked Stories (4 Cols / approx 35%) with Highlights & Clickable Glow */}
-        <div id="hero-side-stories" className="lg:col-span-4 flex flex-col justify-between space-y-3 sm:space-y-4">
+        {/* Right Stacked Stories (4 Cols / or 12-Cols 3-Card Row when Full Width) */}
+        <div
+          id="hero-side-stories"
+          className={
+            isFullWidth
+              ? 'lg:col-span-12 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4'
+              : 'lg:col-span-4 flex flex-col justify-between space-y-3 sm:space-y-4'
+          }
+        >
           {cards.map((card, idx) => (
             <Link
               key={idx}
               href={`/articles/${card.slug}`}
-              className="group bg-white rounded-xl border border-editorialBorder hover:border-emerald-brand hover:ring-2 hover:ring-emerald-500/20 p-2.5 sm:p-3.5 shadow-sm hover:shadow-md transition-all duration-300 flex items-center space-x-3 sm:space-x-3.5 min-w-0 card-hover-modern"
+              style={{
+                minHeight: theme?.sideCardHeight || '85px',
+                borderRadius: theme?.borderRadius || '14px',
+              }}
+              className="group bg-white border border-editorialBorder hover:border-emerald-brand hover:ring-2 hover:ring-emerald-500/20 p-2.5 sm:p-3.5 shadow-sm hover:shadow-md transition-all duration-300 flex items-center space-x-3 sm:space-x-3.5 min-w-0 card-hover-modern"
             >
               {/* Thumbnail */}
               <div className="w-20 h-16 xs:w-24 xs:h-20 sm:w-28 sm:h-22 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 relative">
