@@ -1,0 +1,51 @@
+{
+  "name": "nesture-journal",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "db:start": "node scripts/db-server.js start",
+    "db:stop": "node scripts/db-server.js stop",
+    "db:status": "node scripts/db-server.js status",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:push": "prisma db push",
+    "prisma:seed": "node scripts/seed-db.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.21.1",
+    "bcryptjs": "^2.4.3",
+    "clsx": "^2.1.1",
+    "embedded-postgres": "^19.0.0-beta.20",
+    "lucide-react": "^0.453.0",
+    "next": "^14.2.18",
+    "pg": "^8.13.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.13.0",
+    "sharp": "^0.33.5",
+    "tailwind-merge": "^2.5.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.2",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.17.6",
+    "@types/pg": "^8.11.10",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "prisma": "^5.21.1",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}

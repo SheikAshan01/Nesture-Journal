@@ -1,0 +1,342 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  roleId       String
+  role         Role       @relation(fields: [roleId], references: [id])
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  sessions     Session[]
+  author       Author?
+  auditLogs    AuditLog[]
+
+  @@index([email])
+  @@index([roleId])
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique // SUPER_ADMIN, ADMIN, EDITOR, AUTHOR
+  description String?
+  users       User[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  name        String           @unique // e.g. article:create, article:publish, user:manage
+  description String?
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Author {
+  id        String    @id @default(cuid())
+  userId    String?   @unique
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name      String
+  slug      String    @unique
+  bio       String?
+  avatar    String?
+  roleTitle String?   @default("Senior Editorial Analyst")
+  email     String?
+  articles  Article[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([slug])
+}
+
+model Category {
+  id             String        @id @default(cuid())
+  name           String        @unique
+  slug           String        @unique
+  description    String?
+  color          String?       @default("#008F5A")
+  seoTitle       String?
+  seoDescription String?
+  subcategories  Subcategory[]
+  articles       Article[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([slug])
+}
+
+model Subcategory {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String
+  categoryId  String
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  description String?
+  articles    Article[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([categoryId, slug])
+  @@index([slug])
+}
+
+model Tag {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  slug        String       @unique
+  articleTags ArticleTag[]
+  createdAt   DateTime     @default(now())
+
+  @@index([slug])
+}
+
+model ArticleTag {
+  articleId String
+  tagId     String
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, tagId])
+}
+
+model ArticleImage {
+  id         String   @id @default(cuid())
+  articleId  String?
+  article    Article? @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  url        String
+  filename   String
+  alt        String?
+  caption    String?
+  fileSize   Int?
+  mimeType   String?
+  width      Int?
+  height     Int?
+  isFeatured Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([articleId])
+}
+
+model Article {
+  id                 String                  @id @default(cuid())
+  title              String
+  slug               String                  @unique
+  shortDescription   String
+  content            String                  @db.Text
+  featuredImage      String?
+  imageAlt           String?
+  categoryId         String
+  category           Category                @relation(fields: [categoryId], references: [id])
+  subcategoryId      String?
+  subcategory        Subcategory?            @relation(fields: [subcategoryId], references: [id])
+  authorId           String
+  author             Author                  @relation(fields: [authorId], references: [id])
+  status             String                  @default("DRAFT") // DRAFT, PENDING_APPROVAL, PUBLISHED, SCHEDULED, ARCHIVED
+  publicationDate    DateTime?
+  updatedDate        DateTime                @updatedAt
+  readingTime        Int                     @default(5)
+  seoTitle           String?
+  seoDescription     String?
+  canonicalUrl       String?
+  sourceAttribution  String?
+  sourceName         String?
+  sourceUrl          String?
+  isFeatured         Boolean                 @default(false)
+  isTrending         Boolean                 @default(false)
+  isBreaking         Boolean                 @default(false)
+  isDeleted          Boolean                 @default(false)
+  viewCount          Int                     @default(0)
+  tags               ArticleTag[]
+  images             ArticleImage[]
+  scheduledPost      ScheduledPost?
+  processingJobs     ContentProcessingJob[]
+  analyticsEvents    AnalyticsEvent[]
+
+  @@index([slug])
+  @@index([categoryId])
+  @@index([status])
+  @@index([isFeatured])
+  @@index([isTrending])
+  @@index([isBreaking])
+  @@index([publicationDate])
+}
+
+model ContentSource {
+  id           String    @id @default(cuid())
+  name         String
+  url          String
+  sourceType   String    @default("NEWS_PORTAL") // NEWS_PORTAL, RSS, MANUAL, EDITORIAL
+  category     String?   // e.g. "Residential", "Commercial", "Policy & Finance"
+  description  String?
+  articleCount Int       @default(0)
+  lastSyncAt   DateTime?
+  isEnabled    Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model NavbarItem {
+  id           String   @id @default(cuid())
+  label        String
+  href         String
+  categorySlug String?
+  order        Int      @default(0)
+  isVisible    Boolean  @default(true)
+  isExternal   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ContentProcessingJob {
+  id        String   @id @default(cuid())
+  articleId String?
+  article   Article? @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  jobType   String   // KEYWORD_EXTRACTION, RULE_CATEGORIZATION, SIMILARITY_CHECK, READING_TIME
+  status    String   // PENDING, COMPLETED, FAILED
+  result    String?  @db.Text // JSON result payload
+  createdAt DateTime @default(now())
+
+  @@index([articleId])
+  @@index([jobType])
+}
+
+model ScheduledPost {
+  id           String   @id @default(cuid())
+  articleId    String   @unique
+  article      Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  scheduledFor DateTime
+  status       String   @default("PENDING") // PENDING, PROCESSED, CANCELLED
+  createdAt    DateTime @default(now())
+
+  @@index([scheduledFor])
+  @@index([status])
+}
+
+model SEOSettings {
+  id                     String   @id @default("default")
+  siteTitle              String   @default("Nesture Journal | Real Estate News, Insights & Market Intelligence")
+  siteDescription        String   @default("In-depth news, market trends, policy updates and expert insights from India and around the world.")
+  defaultOgImage         String?
+  robotsDirectives       String   @default("User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\nSitemap: http://localhost:3000/sitemap.xml")
+  googleSiteVerification String?
+  canonicalDomain        String   @default("http://localhost:3000")
+  structuredDataOrg      String?  @db.Text
+  updatedAt              DateTime @updatedAt
+}
+
+model MarketData {
+  id            String   @id @default(cuid())
+  symbol        String   @unique // DLF, GODREJPROP, OBEROIRLTY, PRESTIGE, MDBL, INDEX
+  name          String
+  category      String   // STOCK, INDEX, KPI_HOUSING, KPI_OFFICE, KPI_SUPPLY
+  currentValue  Float
+  previousValue Float?
+  change        Float
+  percentChange Float
+  period        String   @default("Daily") // Daily, QoQ, Monthly
+  dataPoints    String?  @db.Text // JSON series
+  isDemo        Boolean  @default(true) // Always DEMO DATA in current version
+  updatedAt     DateTime @updatedAt
+
+  @@index([category])
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  eventType String   // PAGE_VIEW, ARTICLE_VIEW, CATEGORY_VIEW, SEARCH, SHARE
+  path      String
+  articleId String?
+  article   Article? @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  categoryId String?
+  referrer  String?
+  userAgent String?
+  ipHash    String?
+  createdAt DateTime @default(now())
+
+  @@index([eventType])
+  @@index([path])
+  @@index([articleId])
+  @@index([createdAt])
+}
+
+model SearchLog {
+  id          String   @id @default(cuid())
+  query       String
+  resultCount Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([query])
+}
+
+model NewsletterSubscriber {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  status       String   @default("ACTIVE") // ACTIVE, UNSUBSCRIBED
+  token        String   @unique
+  consentGiven Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  @@index([email])
+}
+
+model SiteSettings {
+  id                  String   @id @default("default")
+  siteName            String   @default("Nesture Journal")
+  tagline             String   @default("Real Estate News, Insights & Markets")
+  logoUrl             String?
+  contactEmail        String   @default("editor@nesturejournal.com")
+  contactPhone        String?  @default("+91 (0) 11 4567 8900")
+  contactAddress      String?  @default("Editorial Towers, Connaught Place, New Delhi 110001, India")
+  socialLinks         String?  @db.Text
+  footerText          String?  @db.Text
+  breakingNewsEnabled Boolean  @default(true)
+  realtyStocksEnabled Boolean  @default(true)
+  updatedAt           DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String   // LOGIN, LOGOUT, ARTICLE_CREATE, ARTICLE_UPDATE, CATEGORY_DELETE, SETTINGS_UPDATE
+  entityType String
+  entityId   String?
+  details    String?  @db.Text
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+}
