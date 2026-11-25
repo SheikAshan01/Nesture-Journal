@@ -18,15 +18,18 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function TrendingPage() {
-  const articles = await prisma.article.findMany({
-    where: {
-      status: 'PUBLISHED',
-      OR: [{ isTrending: true }, { viewCount: { gt: 0 } }],
-    },
-    include: { category: true, author: true },
-    orderBy: [{ viewCount: 'desc' }, { publicationDate: 'desc' }],
-    take: 12,
-  });
+  let articles: any[] = [];
+  try {
+    articles = await prisma.article.findMany({
+      where: {
+        status: 'PUBLISHED',
+        OR: [{ isTrending: true }, { viewCount: { gt: 0 } }],
+      },
+      include: { category: true, author: true },
+      orderBy: [{ viewCount: 'desc' }, { publicationDate: 'desc' }],
+      take: 12,
+    });
+  } catch {}
 
   return (
     <>

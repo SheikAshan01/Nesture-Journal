@@ -87,7 +87,14 @@ export async function GET(req: NextRequest) {
     return response;
   } catch (error: any) {
     console.error('Articles fetch error:', error);
-    return NextResponse.json({ error: 'Failed to retrieve articles' }, { status: 500 });
+    return NextResponse.json(
+      {
+        articles: [],
+        pagination: { page: 1, limit: 10, total: 0, totalPages: 0 },
+        error: error?.message || 'Failed to retrieve articles',
+      },
+      { status: 200 }
+    );
   }
 }
 

@@ -18,14 +18,17 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function ArticlesPage() {
-  const articles = await prisma.article.findMany({
-    where: { status: 'PUBLISHED' },
-    include: {
-      category: true,
-      author: true,
-    },
-    orderBy: { publicationDate: 'desc' },
-  });
+  let articles: any[] = [];
+  try {
+    articles = await prisma.article.findMany({
+      where: { status: 'PUBLISHED' },
+      include: {
+        category: true,
+        author: true,
+      },
+      orderBy: { publicationDate: 'desc' },
+    });
+  } catch {}
 
   return (
     <>

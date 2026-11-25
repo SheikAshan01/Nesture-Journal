@@ -26,9 +26,12 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function MarketIntelligencePage() {
-  const marketData = await prisma.marketData.findMany({
-    orderBy: { symbol: 'asc' },
-  });
+  let marketData: any[] = [];
+  try {
+    marketData = await prisma.marketData.findMany({
+      orderBy: { symbol: 'asc' },
+    });
+  } catch {}
 
   const index = marketData.find((m) => m.category === 'INDEX');
   const kpis = marketData.filter((m) => m.category.startsWith('KPI_'));

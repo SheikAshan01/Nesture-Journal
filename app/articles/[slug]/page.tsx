@@ -201,18 +201,18 @@ export default async function ArticleDetailPage({ params }: ArticlePageProps) {
           </div>
         </header>
 
-        {/* Featured Image */}
+        {/* Featured Image (Crisp, unstretched, never crops portraits) */}
         {article.featuredImage && (
-          <div className="mb-10 rounded-2xl overflow-hidden shadow-sm border border-editorialBorder bg-gray-100">
-            <div className="aspect-[16/9] w-full relative">
+          <div className="mb-10 rounded-2xl overflow-hidden shadow-sm border border-editorialBorder bg-slate-100/80">
+            <div className="w-full flex items-center justify-center bg-slate-900/5 p-2 sm:p-4">
               <img
                 src={article.featuredImage}
                 alt={article.imageAlt || article.title}
-                className="w-full h-full object-cover"
+                className="max-h-[460px] w-auto max-w-full object-contain rounded-xl shadow-xs"
               />
             </div>
             {article.imageAlt && (
-              <div className="px-4 py-2 bg-softBg text-[11px] text-gray-500 italic">
+              <div className="px-4 py-2 bg-softBg text-[11px] text-gray-500 italic border-t border-editorialBorder/60">
                 Photo: {article.imageAlt}
               </div>
             )}
